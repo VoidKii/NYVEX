@@ -1,11 +1,11 @@
 'use strict';
-const CACHE='nyvex-shell-v10';
+const CACHE='nyvex-shell-v11';
 const ASSETS=[
   '/',
   '/index.html',
   '/styles.css?v=11',
-  '/nyvex-studio.css?v=2',
-  '/app.js?v=12',
+  '/nyvex-studio.css?v=3',
+  '/app.js?v=13',
   '/nyvex-vfx.js?v=1',
   '/favicon.svg',
   '/manifest.webmanifest'
