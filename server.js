@@ -165,7 +165,7 @@ function userNotesWorkspace(session) {
 }
 function reply(res, status, data) {
   const body = JSON.stringify(data);
-  res.writeHead(status, { 'Content-Type':'application/json; charset=utf-8', 'Content-Length':Buffer.byteLength(body), 'Cache-Control':'no-store', 'X-Content-Type-Options':'nosniff', 'Referrer-Policy':'no-referrer', 'X-Frame-Options':'DENY', 'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'" });
+  res.writeHead(status, { 'Content-Type':'application/json; charset=utf-8', 'Content-Length':Buffer.byteLength(body), 'Cache-Control':'no-store', 'X-Content-Type-Options':'nosniff', 'Referrer-Policy':'no-referrer', 'X-Frame-Options':'DENY', 'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://images.unsplash.com; media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'" });
   res.end(body);
 }
 function error(res, status, message, code) { reply(res, status, { error: message, ...(code ? { code } : {}) }); }
@@ -470,7 +470,7 @@ function staticFile(req,res,url) {
   let decoded; try{decoded=decodeURIComponent(url)}catch{return error(res,400,'Bad URL.');}
   if(decoded==='/') decoded='/index.html'; const file=path.resolve(PUBLIC,`.${decoded}`);
   if(!file.startsWith(PUBLIC+path.sep)) return error(res,403,'Forbidden.');
-  fs.stat(file,(e,st)=>{if(e||!st.isFile()) return error(res,404,'File not found.');res.writeHead(200,{'Content-Type':MIME[path.extname(file)]||'application/octet-stream','Cache-Control':path.extname(file)==='.html'?'no-cache':'public, max-age=3600','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"});if(req.method==='HEAD')return res.end();fs.createReadStream(file).pipe(res);});
+  fs.stat(file,(e,st)=>{if(e||!st.isFile()) return error(res,404,'File not found.');res.writeHead(200,{'Content-Type':MIME[path.extname(file)]||'application/octet-stream','Cache-Control':path.extname(file)==='.html'?'no-cache':'public, max-age=3600','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://images.unsplash.com; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"});if(req.method==='HEAD')return res.end();fs.createReadStream(file).pipe(res);});
 }
 const server=http.createServer((req,res)=>{
   const host=req.headers.host, origin=req.headers.origin;
