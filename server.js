@@ -82,7 +82,12 @@ function readBody(req) {
     req.on('error', reject);
   });
 }
-function config() { return { key: (process.env.OPENAI_API_KEY || '').trim(), model: (process.env.OPENAI_MODEL || 'gpt-4o-mini').trim() }; }
+function config() {
+  const geminiKey = (process.env.GEMINI_API_KEY || '').trim();
+  if (geminiKey) return { key: geminiKey, provider: 'Gemini', endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', model: (process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite').trim() };
+  const openaiKey = (process.env.OPENAI_API_KEY || '').trim();
+  return { key: openaiKey, provider: 'OpenAI', endpoint: 'https://api.openai.com/v1/chat/completions', model: (process.env.OPENAI_MODEL || 'gpt-4o-mini').trim() };
+}
 function validate(body) {
   const mode = Object.hasOwn(MODES, body.mode) ? body.mode : 'DREAM';
   if (!Array.isArray(body.messages) || !body.messages.length) throw Object.assign(new Error('Send at least one message.'), { statusCode: 400 });
@@ -95,16 +100,19 @@ function validate(body) {
   return { mode, messages };
 }
 async function modelCall(messages, { tools = false, temperature = 0.5, timeout = 60000 } = {}) {
-  const { key, model } = config();
-  if (!key) throw Object.assign(new Error('NYVEX is ready, but OPENAI_API_KEY is not configured. Add it to your local .env or your hosting environment.'), { statusCode:503, code:'AI_NOT_CONFIGURED' });
+  const { key, model, provider, endpoint } = config();
+  if (!key) throw Object.assign(new Error('NYVEX needs an AI provider key. Set GEMINI_API_KEY for the free-tier Gemini option, or OPENAI_API_KEY for OpenAI, in the hosting environment.'), { statusCode:503, code:'AI_NOT_CONFIGURED' });
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), timeout);
   try {
     const body = { model, temperature, messages };
     if (tools) { body.tools = TOOL_SCHEMAS; body.tool_choice = 'auto'; }
-    const r = await fetch('https://api.openai.com/v1/chat/completions', { method:'POST', headers:{ Authorization:`Bearer ${key}`, 'Content-Type':'application/json' }, body:JSON.stringify(body), signal:controller.signal });
+    const r = await fetch(endpoint, { method:'POST', headers:{ Authorization:`Bearer ${key}`, 'Content-Type':'application/json' }, body:JSON.stringify(body), signal:controller.signal });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) {
-      const msg = r.status === 401 ? 'OpenAI rejected the API key. Check the server environment.' : r.status === 429 ? 'OpenAI reports a rate or usage limit. Check the account usage and billing settings.' : 'The AI provider could not complete the request. Please retry.';
+      const msg = r.status === 401 ? `${provider} rejected the API key. Check the server environment.`
+        : r.status === 403 ? `${provider} denied this request. Check that the API is enabled and the key has access.`
+        : r.status === 429 ? `${provider} reports a rate or free-tier quota limit. Wait for the quota to reset and check the provider's usage page.`
+        : 'The AI provider could not complete the request. Please retry.';
       throw Object.assign(new Error(msg), { statusCode:r.status === 429 ? 429 : 502, providerDetail:String(data?.error?.message || '').slice(0,180) });
     }
     const message = data?.choices?.[0]?.message;
