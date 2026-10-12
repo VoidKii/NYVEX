@@ -1,6 +1,6 @@
 'use strict';
 const $ = (s) => document.querySelector(s);
-const ui = { messages:$('#messages'), prompt:$('#prompt'), composer:$('#composer'), send:$('#send'), thinking:$('#thinking'), thinkingLabel:$('#thinking-label'), welcome:$('#welcome-panel'), activity:$('#activity-list'), activityCount:$('#activity-count'), planForm:$('#plan-form'), goal:$('#goal'), planButton:$('#plan-button'), planOutput:$('#plan-output'), toast:$('#toast') };
+const ui = { messages:$('#messages'), prompt:$('#prompt'), composer:$('#composer'), send:$('#send'), thinking:$('#thinking'), thinkingLabel:$('#thinking-label'), welcome:$('#welcome-panel'), activity:$('#activity-list'), activityCount:$('#activity-count'), planForm:$('#plan-form'), goal:$('#goal'), planButton:$('#plan-button'), planOutput:$('#plan-output'), toast:$('#toast'), authWall:$('#auth-wall'), authForm:$('#auth-form'), authPassword:$('#auth-password'), authMessage:$('#auth-message'), authError:$('#auth-error'), authSetup:$('#auth-setup') };
 let mode='DREAM', busy=false, toastTimer;
 const STORAGE='nyvex.history.v2', CHAT='nyvex.current.v2';
 let history=[];
@@ -35,5 +35,40 @@ $('#new-chat').addEventListener('click',()=>{messages=[];save();renderHistory();
 $('#clear-chat').addEventListener('click',()=>{messages=[];save();renderHistory();updateActivity([]);toast('Current conversation cleared.');});
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('active',x===b));$('#breadcrumb-page').textContent=b.dataset.view==='planner'?'Mission planner':'Agent';if(b.dataset.view==='planner')$('#goal').focus();}));
 window.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();messages=[];save();renderHistory();ui.prompt.focus();}});
-async function status(){try{const r=await fetch('/api/status');const d=await r.json();const pulse=document.querySelector('.pulse');if(d.configured){$('#provider-state').textContent='AI brain connected';$('#provider-model').textContent=d.model||'OpenAI model';pulse.classList.add('on');pulse.classList.remove('off');$('#core-status').textContent='ONLINE';}else{$('#provider-state').textContent='API key needed';$('#provider-model').textContent='Add OPENAI_API_KEY';pulse.classList.add('off');$('#core-status').textContent='WAITING';}}catch{$('#provider-state').textContent='Server unreachable';$('#provider-model').textContent='Start NYVEX to connect';$('#core-status').textContent='OFFLINE';}}
+function updateGate(d){
+  if(!d.accessConfigured){
+    ui.authWall.classList.remove('hidden');ui.authForm.classList.add('hidden');ui.authSetup.classList.remove('hidden');
+    ui.authMessage.textContent='NYVEX is locked until the owner finishes the security setup.';
+    return false;
+  }
+  if(!d.authenticated){
+    ui.authWall.classList.remove('hidden');ui.authForm.classList.remove('hidden');ui.authSetup.classList.add('hidden');
+    ui.authMessage.textContent='Enter the private access password to continue.';return false;
+  }
+  ui.authWall.classList.add('hidden');return true;
+}
+ui.authForm.addEventListener('submit',async e=>{
+  e.preventDefault();ui.authError.textContent='';
+  const password=ui.authPassword.value, submit=$('#auth-submit');
+  submit.disabled=true;submit.textContent='Checking…';
+  try{
+    const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Could not unlock NYVEX.');
+    ui.authPassword.value='';await status();
+    if(!ui.authWall.classList.contains('hidden'))throw new Error('NYVEX is still locked. Refresh or check the access setup.');
+    toast('Welcome back. NYVEX unlocked.');
+  }catch(e){ui.authError.textContent=e.message||'Could not unlock NYVEX.';}
+  finally{submit.disabled=false;submit.innerHTML='Unlock <span>↗</span>';}
+});
+async function status(){try{
+  const r=await fetch('/api/status',{cache:'no-store'}), d=await r.json(), pulse=document.querySelector('.pulse');
+  if(!updateGate(d)){
+    if(!d.accessConfigured){$('#provider-state').textContent='Access setup needed';$('#provider-model').textContent='Set NYVEX_ACCESS_PASSWORD';$('#core-status').textContent='LOCKED';}
+    else{$('#provider-state').textContent='Private workspace locked';$('#provider-model').textContent='Enter access password';$('#core-status').textContent='LOCKED';}
+    pulse.classList.remove('on');pulse.classList.add('off');return;
+  }
+  if(d.configured){$('#provider-state').textContent='AI brain connected';$('#provider-model').textContent=d.model||'OpenAI model';pulse.classList.add('on');pulse.classList.remove('off');$('#core-status').textContent='ONLINE';}
+  else{$('#provider-state').textContent='API key needed';$('#provider-model').textContent='Add OPENAI_API_KEY';pulse.classList.add('off');$('#core-status').textContent='WAITING';}
+}catch{$('#provider-state').textContent='Server unreachable';$('#provider-model').textContent='Start NYVEX to connect';$('#core-status').textContent='OFFLINE';}}
 renderHistory();updateActivity([]);status();
