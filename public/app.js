@@ -1,7 +1,7 @@
 'use strict';
 const $ = (s) => document.querySelector(s);
-const ui = { messages:$('#messages'), prompt:$('#prompt'), composer:$('#composer'), send:$('#send'), thinking:$('#thinking'), thinkingLabel:$('#thinking-label'), welcome:$('#welcome-panel'), activity:$('#activity-list'), activityCount:$('#activity-count'), planForm:$('#plan-form'), goal:$('#goal'), planButton:$('#plan-button'), planOutput:$('#plan-output'), toast:$('#toast'), authWall:$('#auth-wall'), authForm:$('#auth-form'), authEmail:$('#auth-email'), authPassword:$('#auth-password'), authMessage:$('#auth-message'), authError:$('#auth-error'), authSetup:$('#auth-setup'), memoryPanel:$('#memory-panel'), memoryForm:$('#memory-form'), memoryInput:$('#memory-input'), memoryList:$('#memory-list'), memorySave:$('#memory-save'), memoryCount:$('#memory-count'), authSignup:$('#auth-signup'), logoutButton:$('#logout-button'), accountEmail:$('#account-email'), voiceInput:$('#voice-input'), voiceToggle:$('#voice-toggle') };
-let mode='DREAM', busy=false, toastTimer, installPrompt=null, voiceAuto=localStorage.getItem('nyvex.voice.autoplay')==='true', recognition=null, isListening=false, authMode='legacy', activeUserId='guest', lastMemoryUser=null;
+const ui = { messages:$('#messages'), prompt:$('#prompt'), composer:$('#composer'), send:$('#send'), thinking:$('#thinking'), thinkingLabel:$('#thinking-label'), welcome:$('#welcome-panel'), activity:$('#activity-list'), activityCount:$('#activity-count'), planForm:$('#plan-form'), goal:$('#goal'), planButton:$('#plan-button'), planOutput:$('#plan-output'), toast:$('#toast'), authWall:$('#auth-wall'), authForm:$('#auth-form'), authEmail:$('#auth-email'), authPassword:$('#auth-password'), authMessage:$('#auth-message'), authError:$('#auth-error'), authSetup:$('#auth-setup'), memoryPanel:$('#memory-panel'), memoryForm:$('#memory-form'), memoryInput:$('#memory-input'), memoryList:$('#memory-list'), memorySave:$('#memory-save'), memoryCount:$('#memory-count'), authSignup:$('#auth-signup'), logoutButton:$('#logout-button'), accountEmail:$('#account-email'), voiceInput:$('#voice-input'), voiceToggle:$('#voice-toggle'), voiceModal:$('#voice-modal'), voiceModeOpen:$('#voice-mode-open'), voiceStatus:$('#voice-status'), voiceStatusLight:$('#voice-status-light'), voiceCaption:$('#voice-caption'), voiceUserText:$('#voice-user-text'), voiceAiText:$('#voice-ai-text'), voiceStart:$('#voice-start'), voiceStop:$('#voice-stop'), voiceReplies:$('#voice-replies'), voiceLanguage:$('#voice-language'), voiceClose:$('#voice-close') };
+let mode='DREAM', busy=false, toastTimer, installPrompt=null, voiceAuto=localStorage.getItem('nyvex.voice.autoplay')==='true', recognition=null, isListening=false, authMode='legacy', activeUserId='guest', lastMemoryUser=null, voiceSessionActive=false, voiceTurnInProgress=false, voiceRetryTimer=null, voiceReplyAudio=localStorage.getItem('nyvex.voice.replies')!=='false';
 let STORAGE='nyvex.history.v2.guest', CHAT='nyvex.current.v2.guest';
 const installButton=$('#install-app');
 function refreshInstallButton(){if(!installButton)return;const standalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;installButton.classList.toggle('hidden',standalone);}
@@ -37,7 +37,45 @@ function addMessage(role, text, actions=[]){
 function renderHistory(){ui.messages.replaceChildren();ui.welcome.classList.toggle('hidden',messages.length>0);for(const m of messages)addMessage(m.role,m.content,m.actions||[]);}
 function updateActivity(actions=[]){ui.activity.replaceChildren();ui.activityCount.textContent=`${actions.length} STEP${actions.length===1?'':'S'}`;if(!actions.length){const e=document.createElement('div');e.className='activity-empty';e.innerHTML='<span class="activity-line"></span><span>No tool calls this run. Start another mission.</span>';ui.activity.append(e);return;}for(const a of actions){const item=document.createElement('div');item.className='activity-item';const mark=document.createElement('span');mark.className=`activity-mark ${a.ok?'done':'failed'}`;const txt=document.createElement('div');txt.className='activity-text';const title=document.createElement('b');title.textContent=a.tool;const detail=document.createElement('small');detail.textContent=a.summary|| (a.ok?'Tool completed':'Tool did not complete');txt.append(title,detail);item.append(mark,txt);ui.activity.append(item);}}
 function renderPlan(plan){ui.planOutput.replaceChildren();const title=document.createElement('h3');title.className='plan-title';title.textContent=plan.title;const summary=document.createElement('p');summary.className='plan-summary';summary.textContent=plan.summary;ui.planOutput.append(title,summary);for(const t of plan.tasks){const row=document.createElement('div');row.className='plan-task';const check=document.createElement('input');check.type='checkbox';check.id=`task-${t.id}`;const label=document.createElement('label');label.htmlFor=check.id;label.append(document.createTextNode(t.title));if(t.detail){const detail=document.createElement('small');detail.textContent=t.detail;label.append(detail);}const pri=document.createElement('span');pri.className=`priority ${t.priority}`;pri.textContent=t.priority;label.append(pri);row.append(check,label);ui.planOutput.append(row);}}
-async function sendMessage(text){text=String(text||'').trim();if(!text||busy)return;messages.push({role:'user',content:text});save();addMessage('user',text);ui.prompt.value='';ui.prompt.style.height='auto';setBusy(true);updateActivity([]);try{const res=await fetch('/api/agent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode,messages:messages.slice(-18)})});const data=await res.json();if(!res.ok)throw new Error(data.error||'Request failed.');const answer=String(data.reply||'NYVEX returned an empty response.');const actions=Array.isArray(data.actions)?data.actions:[];messages.push({role:'assistant',content:answer,actions});save();addMessage('assistant',answer,actions);updateActivity(actions);$('#core-status').textContent='ACTIVE';if(voiceAuto)speakText(answer);}catch(e){toast(e.message||'Could not reach NYVEX.',true);addMessage('assistant',`I couldn't complete that request: ${e.message||'Network error'}. Check the API key/server status and retry.`); }finally{setBusy(false);ui.prompt.focus();}}
+async function sendMessage(text, options={}){
+  text=String(text||'').trim();
+  if(!text||busy){
+    if(options.fromVoice&&voiceSessionActive){voiceTurnInProgress=false;scheduleVoiceListening(900);}
+    return;
+  }
+  messages.push({role:'user',content:text});save();addMessage('user',text);
+  ui.prompt.value='';ui.prompt.style.height='auto';setBusy(true);updateActivity([]);
+  let voiceCallbackScheduled=false;
+  try{
+    const res=await fetch('/api/agent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode,messages:messages.slice(-18)})});
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error||'Request failed.');
+    const answer=String(data.reply||'NYVEX returned an empty response.');
+    const actions=Array.isArray(data.actions)?data.actions:[];
+    messages.push({role:'assistant',content:answer,actions});save();addMessage('assistant',answer,actions);updateActivity(actions);
+    $('#core-status').textContent='ACTIVE';
+    if(options.fromVoice&&voiceSessionActive){
+      ui.voiceAiText.textContent=answer;
+      setVoiceStatus('NYVEX responding','I have your answer. I will listen again when the reply finishes.');
+      voiceCallbackScheduled=true;
+      if(voiceReplyAudio)speakText(answer,finishVoiceTurn);
+      else finishVoiceTurn();
+    }else if(voiceAuto)speakText(answer);
+  }catch(e){
+    const failure="I couldn't complete that request: "+(e.message||'Network error')+". Check the connection and try again.";
+    toast(e.message||'Could not reach NYVEX.',true);
+    addMessage('assistant',failure);
+    if(options.fromVoice&&voiceSessionActive){
+      ui.voiceAiText.textContent=failure;
+      voiceCallbackScheduled=true;
+      if(voiceReplyAudio)speakText(failure,finishVoiceTurn);
+      else finishVoiceTurn();
+    }
+  }finally{
+    setBusy(false);ui.prompt.focus();
+    if(options.fromVoice&&voiceSessionActive&&!voiceCallbackScheduled&&voiceTurnInProgress)finishVoiceTurn();
+  }
+}
 async function planMission(goal){goal=String(goal||'').trim();if(!goal||busy)return;setBusy(true);ui.planButton.disabled=true;try{const res=await fetch('/api/plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'TACTIC',messages:[{role:'user',content:goal}]})});const data=await res.json();if(!res.ok)throw new Error(data.error||'Plan failed.');renderPlan(data.plan);$('#breadcrumb-page').textContent='Mission planner';toast('Mission plan created. Check off steps as you finish them.');}catch(e){toast(e.message||'Could not create a plan.',true);}finally{setBusy(false);ui.planButton.disabled=false;}}
 function chooseMode(next){mode=next;document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('selected',b.dataset.mode===next));$('#composer-mode').textContent=`${next} MODE`;}
 document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>chooseMode(b.dataset.mode)));
@@ -153,16 +191,208 @@ async function status(){try{
   if(d.configured){$('#provider-state').textContent='AI brain connected';$('#provider-model').textContent=d.model||'Cloud AI';pulse.classList.add('on');pulse.classList.remove('off');$('#core-status').textContent='ONLINE';}
   else{$('#provider-state').textContent='AI key needed';$('#provider-model').textContent='Check provider setup';pulse.classList.add('off');$('#core-status').textContent='WAITING';}
 }catch{$('#provider-state').textContent='Server unreachable';$('#provider-model').textContent='Start NYVEX to connect';$('#core-status').textContent='OFFLINE';}}
-function speakText(text){
-  if(!('speechSynthesis' in window)||!window.SpeechSynthesisUtterance){toast('Spoken replies are not supported in this browser.',true);return;}
+function voiceRecognitionConstructor(){return window.SpeechRecognition||window.webkitSpeechRecognition;}
+function setVoiceStatus(status,caption){
+  ui.voiceStatus.textContent=String(status||'Voice link standby').toUpperCase();
+  ui.voiceCaption.textContent=caption||'';
+  ui.voiceStatusLight.classList.toggle('on',voiceSessionActive);
+  ui.voiceModal.classList.toggle('voice-active',voiceSessionActive);
+}
+function speakText(text,onEnd){
+  if(!('speechSynthesis' in window)||!window.SpeechSynthesisUtterance){
+    toast('Spoken replies are not supported in this browser.',true);
+    if(typeof onEnd==='function')setTimeout(onEnd,0);
+    return false;
+  }
   window.speechSynthesis.cancel();
   const utterance=new SpeechSynthesisUtterance(String(text||'').replace(/https?:\/\/\S+/g,'link').slice(0,5000));
-  utterance.lang='en-US';utterance.rate=1;utterance.pitch=1;
+  const language=ui.voiceLanguage?ui.voiceLanguage.value:'en-US';
+  utterance.lang=language;utterance.rate=0.96;utterance.pitch=0.94;utterance.volume=1;
+  try{
+    const voices=window.speechSynthesis.getVoices();
+    const exact=voices.find(v=>String(v.lang||'').toLowerCase()===language.toLowerCase());
+    const matching=voices.find(v=>String(v.lang||'').toLowerCase().startsWith(language.slice(0,2).toLowerCase()));
+    if(exact||matching)utterance.voice=exact||matching;
+  }catch{}
+  let completed=false;
+  const finish=()=>{if(completed)return;completed=true;if(typeof onEnd==='function')onEnd();};
+  utterance.onend=finish;utterance.onerror=finish;
   window.speechSynthesis.speak(utterance);
+  return true;
 }
-function refreshVoiceToggle(){ui.voiceToggle.textContent=voiceAuto?'🔊 Voice on':'🔊 Voice off';ui.voiceToggle.setAttribute('aria-pressed',String(voiceAuto));}
+function refreshVoiceToggle(){
+  ui.voiceToggle.textContent=voiceAuto?'🔊 Voice on':'🔊 Voice off';
+  ui.voiceToggle.setAttribute('aria-pressed',String(voiceAuto));
+}
 ui.voiceToggle.addEventListener('click',()=>{
   voiceAuto=!voiceAuto;localStorage.setItem('nyvex.voice.autoplay',String(voiceAuto));refreshVoiceToggle();
+  if(!voiceAuto&&'speechSynthesis' in window)window.speechSynthesis.cancel();
+  toast(voiceAuto?'NYVEX will speak replies aloud.':'Spoken replies turned off.');
+});
+function refreshVoiceReplyButton(){
+  ui.voiceReplies.textContent=voiceReplyAudio?'◖ Spoken replies on':'◖ Spoken replies off';
+  ui.voiceReplies.setAttribute('aria-pressed',String(voiceReplyAudio));
+}
+function openVoiceMode(){
+  ui.voiceModal.classList.remove('hidden');document.body.classList.add('voice-open');
+  ui.voiceModeOpen.setAttribute('aria-expanded','true');
+  const supported=Boolean(voiceRecognitionConstructor());
+  ui.voiceStart.disabled=!supported;
+  ui.voiceStart.textContent=supported?'Start listening':'Microphone unavailable';
+  ui.voiceUserText.textContent='Waiting for your voice…';
+  ui.voiceAiText.textContent='Standing by.';
+  if(voiceSessionActive){
+    setVoiceStatus(isListening?'Listening':'Voice session active',isListening?'I am listening. Speak naturally.':'Voice session is active.');
+  }else if(supported){
+    setVoiceStatus('Voice link standby','Start a session when you are ready. NYVEX will listen again after each spoken reply.');
+  }else{
+    setVoiceStatus('Voice input unavailable','This browser does not support speech recognition. Try a current version of Chrome or Edge, or use the normal chat controls.');
+  }
+  refreshVoiceReplyButton();
+  (supported?ui.voiceStart:ui.voiceClose).focus({preventScroll:true});
+}
+function closeVoiceMode(){
+  stopVoiceSession(false);
+  ui.voiceModal.classList.add('hidden');document.body.classList.remove('voice-open');
+  ui.voiceModeOpen.setAttribute('aria-expanded','false');
+  ui.voiceModeOpen.focus({preventScroll:true});
+}
+function scheduleVoiceListening(delay){
+  clearTimeout(voiceRetryTimer);
+  if(!voiceSessionActive)return;
+  voiceRetryTimer=setTimeout(()=>{voiceRetryTimer=null;startVoiceListening();},Math.max(250,delay||500));
+}
+function finishVoiceTurn(){
+  if(!voiceSessionActive)return;
+  voiceTurnInProgress=false;
+  setVoiceStatus('Voice link active','Reply complete. I am getting ready to listen again.');
+  scheduleVoiceListening(650);
+}
+function startVoiceListening(){
+  if(!voiceSessionActive||isListening||voiceTurnInProgress)return;
+  if(busy){scheduleVoiceListening(900);return;}
+  const SpeechRecognition=voiceRecognitionConstructor();
+  if(!SpeechRecognition){
+    stopVoiceSession(false);setVoiceStatus('Voice input unavailable','Speech recognition is not supported in this browser.');return;
+  }
+  let current;
+  try{current=new SpeechRecognition();}catch{
+    stopVoiceSession(false);setVoiceStatus('Microphone unavailable','Could not create a microphone session. Try reloading or use typed chat.');return;
+  }
+  recognition=current;
+  current.lang=ui.voiceLanguage.value||'en-US';
+  current.continuous=false;current.interimResults=true;current.maxAlternatives=1;
+  let finalTranscript='',submitted=false;
+  current.onstart=()=>{
+    if(!voiceSessionActive)return;
+    isListening=true;ui.voiceInput.classList.remove('listening');
+    setVoiceStatus('Listening now','I am listening. Speak naturally, then pause when you are done.');
+  };
+  current.onresult=(event)=>{
+    let interim='';
+    for(let i=event.resultIndex;i<event.results.length;i++){
+      const result=event.results[i],transcript=String(result[0]&&result[0].transcript||'');
+      if(result.isFinal)finalTranscript+=transcript+' ';
+      else interim+=transcript;
+    }
+    if(interim.trim()&&!finalTranscript.trim())ui.voiceCaption.textContent='Hearing: '+interim.trim();
+    const phrase=finalTranscript.trim();
+    if(phrase&&!submitted){
+      submitted=true;voiceTurnInProgress=true;
+      ui.voiceUserText.textContent=phrase;ui.voiceAiText.textContent='Thinking through your request…';
+      setVoiceStatus('Thinking','I heard you. NYVEX is working on your request.');
+      try{current.stop();}catch{}
+      sendMessage(phrase,{fromVoice:true});
+    }
+  };
+  current.onerror=(event)=>{
+    if(!voiceSessionActive)return;
+    const reason=String(event.error||'');
+    if(reason==='not-allowed'||reason==='service-not-allowed'||reason==='audio-capture'){
+      const message=reason==='audio-capture'?'No microphone was found. Connect or enable a microphone and try again.':'Microphone access was blocked. Allow it in your browser settings, then start a new session.';
+      stopVoiceSession(false);setVoiceStatus('Microphone blocked',message);toast(message,true);return;
+    }
+    if(reason==='network')setVoiceStatus('Voice connection interrupted','The browser speech service had a connection issue. Retrying…');
+    else if(reason!=='no-speech')setVoiceStatus('Voice input interrupted','I could not hear that clearly. I will try listening again.');
+  };
+  current.onend=()=>{
+    if(recognition===current)recognition=null;
+    isListening=false;
+    if(voiceSessionActive&&!voiceTurnInProgress)scheduleVoiceListening(700);
+  };
+  try{current.start();}
+  catch{
+    if(recognition===current)recognition=null;
+    isListening=false;
+    stopVoiceSession(false);
+    setVoiceStatus('Could not start microphone','Check your browser microphone permission and try again.');
+    toast('Could not start the microphone. Check browser permission and try again.',true);
+  }
+}
+function stopVoiceSession(announce=false){
+  const hadSession=voiceSessionActive||isListening;
+  voiceSessionActive=false;voiceTurnInProgress=false;
+  clearTimeout(voiceRetryTimer);voiceRetryTimer=null;
+  const current=recognition;recognition=null;
+  if(current){try{current.onend=null;current.stop();}catch{}}
+  isListening=false;
+  ui.voiceInput.classList.remove('listening');ui.voiceInput.textContent='🎙';
+  if('speechSynthesis' in window)window.speechSynthesis.cancel();
+  ui.voiceStart.classList.remove('hidden');ui.voiceStop.classList.add('hidden');
+  ui.voiceModal.classList.remove('voice-active');
+  setVoiceStatus('Voice link standby','Session ended. Start listening whenever you are ready.');
+  if(announce&&hadSession)toast('NYVEX voice session ended.');
+}
+function startVoiceSession(){
+  const SpeechRecognition=voiceRecognitionConstructor();
+  if(!SpeechRecognition){setVoiceStatus('Voice input unavailable','Try Chrome or Edge on desktop, or a mobile browser that supports speech recognition.');toast('Voice input is not available in this browser.',true);return;}
+  if(voiceSessionActive){scheduleVoiceListening(250);return;}
+  voiceSessionActive=true;voiceTurnInProgress=false;
+  ui.voiceStart.classList.add('hidden');ui.voiceStop.classList.remove('hidden');
+  setVoiceStatus('Connecting voice link','Starting microphone. Your voice session stays active until you end it.');
+  ui.voiceUserText.textContent='Waiting for your first message…';ui.voiceAiText.textContent='Ready when you are.';
+  startVoiceListening();
+}
+function startOneShotVoiceInput(){
+  const SpeechRecognition=voiceRecognitionConstructor();
+  if(isListening&&recognition&&!voiceSessionActive){try{recognition.stop();}catch{}return;}
+  if(!SpeechRecognition){toast('Voice input is not available in this browser. Try Chrome or Edge, or type your message.',true);return;}
+  let current;
+  try{current=new SpeechRecognition();}catch{toast('Could not start the microphone. Check browser permission and try again.',true);return;}
+  recognition=current;current.lang=ui.voiceLanguage?ui.voiceLanguage.value:'en-US';current.continuous=false;current.interimResults=false;current.maxAlternatives=1;
+  current.onstart=()=>{isListening=true;ui.voiceInput.classList.add('listening');ui.voiceInput.textContent='■ Stop';toast('Listening — say your message.');};
+  current.onresult=(event)=>{
+    const phrase=String(event.results&&event.results[0]&&event.results[0][0]&&event.results[0][0].transcript||'').trim();
+    if(phrase){ui.prompt.value=phrase;ui.prompt.dispatchEvent(new Event('input'));sendMessage(phrase);}
+  };
+  current.onerror=(event)=>{const reason=String(event.error||'');toast(reason==='not-allowed'?'Allow microphone access in your browser settings.':'Voice input stopped. Try again or type your message.',true);};
+  current.onend=()=>{
+    if(recognition===current)recognition=null;
+    if(!voiceSessionActive){isListening=false;ui.voiceInput.classList.remove('listening');ui.voiceInput.textContent='🎙';}
+  };
+  try{current.start();}catch{
+    if(recognition===current)recognition=null;isListening=false;ui.voiceInput.classList.remove('listening');ui.voiceInput.textContent='🎙';
+    toast('Could not start the microphone. Check browser permission and try again.',true);
+  }
+}
+ui.voiceModeOpen.addEventListener('click',openVoiceMode);
+ui.voiceClose.addEventListener('click',closeVoiceMode);
+ui.voiceModal.addEventListener('click',event=>{if(event.target.closest('[data-voice-close]'))closeVoiceMode();});
+ui.voiceStart.addEventListener('click',startVoiceSession);
+ui.voiceStop.addEventListener('click',()=>stopVoiceSession(true));
+ui.voiceReplies.addEventListener('click',()=>{
+  voiceReplyAudio=!voiceReplyAudio;localStorage.setItem('nyvex.voice.replies',String(voiceReplyAudio));refreshVoiceReplyButton();
+  if(!voiceReplyAudio&&'speechSynthesis' in window)window.speechSynthesis.cancel();
+  toast(voiceReplyAudio?'Voice session replies will be spoken aloud.':'Spoken replies muted for this session.');
+});
+ui.voiceInput.addEventListener('click',startOneShotVoiceInput);
+ui.voiceLanguage.addEventListener('change',()=>{
+  if(voiceSessionActive&&isListening&&recognition){try{recognition.stop();}catch{}}
+});
+window.addEventListener('keydown',event=>{
+  if(event.key==='Escape'&&!ui.voiceModal.classList.contains('hidden'))closeVoiceMode();
+});
+refreshVoiceToggle();refreshVoiceReplyButton();
   if(!voiceAuto&&'speechSynthesis' in window)window.speechSynthesis.cancel();
   toast(voiceAuto?'NYVEX will speak replies aloud.':'Spoken replies turned off.');
 });
