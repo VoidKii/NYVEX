@@ -7,6 +7,38 @@ const ROOT = __dirname, PUBLIC = path.join(ROOT, 'public');
 const PORT = Number.parseInt(process.env.PORT || '3000', 10);
 const MAX_BODY = 64 * 1024, MAX_MESSAGE = 8000, MAX_MESSAGES = 18;
 const hitCounts = new Map();
+const SESSION_COOKIE = 'nyvex_gate';
+const SESSION_TTL = 7 * 24 * 60 * 60;
+function accessPassword() { return String(process.env.NYVEX_ACCESS_PASSWORD || ''); }
+function safeEqual(a, b) {
+  const x = Buffer.from(String(a)), y = Buffer.from(String(b));
+  return x.length === y.length && crypto.timingSafeEqual(x, y);
+}
+function sessionSignature(expiry) {
+  return crypto.createHmac('sha256', accessPassword()).update('nyvex-session:' + expiry).digest('base64url');
+}
+function sessionCookie(req) {
+  const header = String(req.headers.cookie || '');
+  const prefix = SESSION_COOKIE + '=';
+  const part = header.split(';').map(x => x.trim()).find(x => x.startsWith(prefix));
+  return part ? part.slice(prefix.length) : '';
+}
+function hasValidSession(req) {
+  const secret = accessPassword();
+  if (!secret) return false;
+  const token = sessionCookie(req);
+  const dot = token.indexOf('.');
+  if (dot < 1) return false;
+  const expiry = token.slice(0, dot), signature = token.slice(dot + 1);
+  const now = Math.floor(Date.now() / 1000);
+  if (!/^\d+$/.test(expiry) || Number(expiry) <= now || Number(expiry) > now + SESSION_TTL + 60) return false;
+  return safeEqual(signature, sessionSignature(expiry));
+}
+function setSessionCookie(req, res, value, maxAge) {
+  const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+  const secure = forwardedProto === 'https' || Boolean(req.socket.encrypted);
+  res.setHeader('Set-Cookie', SESSION_COOKIE + '=' + value + '; Max-Age=' + maxAge + '; HttpOnly; SameSite=Strict; Path=/' + (secure ? '; Secure' : ''));
+}
 function loadEnv() {
   const file = path.join(ROOT, '.env'); if (!fs.existsSync(file)) return;
   for (const row of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
@@ -151,16 +183,41 @@ function parsePlan(text) {
   return {title:String(p.title||'Mission plan').slice(0,120),summary:String(p.summary||'A practical plan for your goal.').slice(0,500),tasks:p.tasks.slice(0,10).map((t,i)=>({id:crypto.randomUUID(),title:String(t.title||`Step ${i+1}`).slice(0,160),detail:String(t.detail||'').slice(0,400),priority:['high','medium','low'].includes(t.priority)?t.priority:'medium'}))};
 }
 async function api(req,res,url) {
-  if(req.method==='GET'&&url==='/api/status') return reply(res,200,{name:'NYVEX',configured:Boolean(config().key),model:config().model});
+  if(req.method==='GET'&&url==='/api/status') {
+    const accessConfigured = Boolean(accessPassword()), authenticated = hasValidSession(req);
+    return reply(res,200,{name:'NYVEX',accessConfigured,authenticated,configured:authenticated&&Boolean(config().key),model:authenticated?config().model:null});
+  }
+  if(req.method==='POST'&&url==='/api/login') {
+    if(!rateLimit(req,res)) return;
+    const secret = accessPassword();
+    if(!secret) return error(res,503,'The owner must set NYVEX_ACCESS_PASSWORD in the hosting environment before unlocking NYVEX.','ACCESS_NOT_CONFIGURED');
+    let loginBody; try{loginBody=await readBody(req)}catch(e){return error(res,e.statusCode||400,e.message||'Invalid request.');}
+    const candidate = typeof loginBody.password==='string' ? loginBody.password : '';
+    if(!safeEqual(candidate,secret)) return error(res,401,'That access password is not correct. Try again.');
+    const expiry = Math.floor(Date.now()/1000) + SESSION_TTL;
+    const token = expiry + '.' + sessionSignature(expiry);
+    setSessionCookie(req,res,token,SESSION_TTL);
+    return reply(res,200,{ok:true});
+  }
+  if(req.method==='POST'&&url==='/api/logout') {
+    setSessionCookie(req,res,'',0);
+    return reply(res,200,{ok:true});
+  }
   if(req.method!=='POST'||!['/api/agent','/api/chat','/api/plan'].includes(url)) return error(res,404,'API route not found.');
+  if(!accessPassword()) return error(res,503,'NYVEX is locked. The owner must set NYVEX_ACCESS_PASSWORD in the hosting environment.','ACCESS_NOT_CONFIGURED');
+  if(!hasValidSession(req)) return error(res,401,'Unlock NYVEX before using the AI tools.','AUTH_REQUIRED');
   if(!rateLimit(req,res)) return;
   let body; try{body=await readBody(req)}catch(e){return error(res,e.statusCode||400,e.message||'Invalid request.');}
   try {
-    const {mode,messages}=validate(body);
+    const validated=validate(body), mode=validated.mode, messages=validated.messages;
     if(url==='/api/agent') return reply(res,200,await runAgent(messages,mode));
-    if(url==='/api/chat') { const m=await modelCall([{role:'system',content:`${PERSONA}\n\n${MODES[mode]}`},...messages],{temperature:0.65}); return reply(res,200,{reply:String(m.content||'').trim(),model:config().model}); }
+    if(url==='/api/chat') {
+      const m=await modelCall([{role:'system',content:PERSONA+'\n\n'+MODES[mode]},...messages],{temperature:0.65});
+      return reply(res,200,{reply:String(m.content||'').trim(),model:config().model});
+    }
     const goal=messages.filter(m=>m.role==='user').at(-1)?.content;
-    const m=await modelCall([{role:'system',content:`${PERSONA}\n${MODES.TACTIC}\nReturn only valid JSON with shape {"title":"...","summary":"...","tasks":[{"title":"...","detail":"...","priority":"high|medium|low"}]}. Give 4–8 ordered actionable steps. Do not claim you performed them.`},{role:'user',content:goal}],{temperature:0.25});
+    const instructions=PERSONA+'\n'+MODES.TACTIC+'\nReturn only valid JSON with shape {"title":"...","summary":"...","tasks":[{"title":"...","detail":"...","priority":"high|medium|low"}]}. Give 4–8 ordered actionable steps. Do not claim you performed them.';
+    const m=await modelCall([{role:'system',content:instructions},{role:'user',content:goal}],{temperature:0.25});
     return reply(res,200,{plan:parsePlan(String(m.content||'')),model:config().model});
   } catch(e) { const status=Number.isInteger(e.statusCode)?e.statusCode:502; if(status>=500&&status!==503) console.error('[NYVEX]',e.message); return error(res,status,e.message||'Something went wrong.',e.code); }
 }
