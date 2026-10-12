@@ -3,18 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#090911">
+  <meta name="theme-color" content="#0b0b0b">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="description" content="NYVEX — an editorial AI studio for ideas, research, creation and strategy.">
-  <title>NYVEX — A mind for the unimagined</title>
+  <meta name="description" content="NYVEX — your AI workspace for thinking, creating, research, code and strategy.">
+  <title>NYVEX — AI Workspace</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="apple-touch-icon" href="/favicon.svg">
   <link rel="stylesheet" href="/styles.css?v=11">
-  <link rel="stylesheet" href="/nyvex-studio.css?v=2">
-  <script src="/app.js?v=12" defer></script>
+  <link rel="stylesheet" href="/nyvex-studio.css?v=3">
+  <script src="/app.js?v=13" defer></script>
   <script src="/nyvex-vfx.js?v=1" defer></script>
 </head>
 <body>
@@ -73,41 +73,17 @@
       <section class="content-grid">
         <section class="chat-column" id="agent-view">
           <div class="welcome" id="welcome-panel">
-            <div class="hero-topline">
-              <div class="eyebrow"><span class="eyebrow-line"></span> INTELLIGENCE, IN MOTION <span class="eyebrow-line"></span></div>
-              <div class="hero-edition">PRIVATE SYSTEM / 01</div>
-            </div>
-            <div class="studio-hero">
-              <div class="studio-copy">
-                <p class="studio-pretitle"><span class="pretitle-mark" aria-hidden="true">✳</span> PERSONAL INTELLIGENCE</p>
-                <h1>A mind for the <span>unimagined.</span></h1>
-                <p class="welcome-copy">A creative intelligence for building what comes next.</p>
-                <div class="hero-footnote"><span class="footnote-number">01</span><p>From the first spark to a clear next move.</p></div>
+            <div class="chatgpt-welcome">
+              <figure class="nyvex-visual" aria-hidden="true"><canvas id="nyvex-vfx"></canvas></figure>
+              <p class="welcome-kicker">NYVEX <span>•</span> AI WORKSPACE</p>
+              <h1>What can I help with?</h1>
+              <p class="welcome-copy">Think it through. Make it real.</p>
+              <div class="suggestions" aria-label="Suggested prompts">
+                <button class="suggestion" data-prompt="Help me turn an idea into a clear step-by-step plan."><span class="suggestion-icon" aria-hidden="true">↗</span><span class="suggestion-copy"><b>Make a plan</b><small>Break a big idea into steps</small></span><span class="suggestion-arrow" aria-hidden="true">↗</span></button>
+                <button class="suggestion" data-prompt="Help me build a modern website with a polished design."><span class="suggestion-icon" aria-hidden="true">⌘</span><span class="suggestion-copy"><b>Build something</b><small>Code, design, and create</small></span><span class="suggestion-arrow" aria-hidden="true">↗</span></button>
+                <button class="suggestion" data-prompt="Explain a difficult topic in simple words and give an example."><span class="suggestion-icon" aria-hidden="true">✳</span><span class="suggestion-copy"><b>Learn something</b><small>Clear answers without the jargon</small></span><span class="suggestion-arrow" aria-hidden="true">↗</span></button>
+                <button class="suggestion" data-prompt="Give me five original concepts for a cinematic video with custom VFX."><span class="suggestion-icon" aria-hidden="true">✧</span><span class="suggestion-copy"><b>Create with VFX</b><small>Explore visuals and effects</small></span><span class="suggestion-arrow" aria-hidden="true">↗</span></button>
               </div>
-              <figure class="nyvex-visual">
-                <img class="visual-photo" src="https://images.unsplash.com/photo-1745864474199-477f765a5548?auto=format&amp;fit=crop&amp;w=1400&amp;q=80" alt="Glass architecture illuminated in blue and violet after dusk" fetchpriority="high" decoding="async">
-                <canvas id="nyvex-vfx" aria-hidden="true"></canvas>
-                <figcaption class="visual-topline"><span>NYVEX / FIELD 01</span><span class="visual-live">LIVING VISUAL SYSTEM</span></figcaption>
-                <div class="visual-bottomline"><span>CRYSTAL STUDY</span><span>∞ &nbsp; FIELD MOTION</span></div>
-              </figure>
-            </div>
-            <div class="welcome-divider"><span>CHOOSE YOUR FIRST DIRECTION</span><span class="divider-right">THREE WAYS TO BEGIN ↘</span></div>
-            <div class="suggestions">
-              <button class="suggestion" data-prompt="Help me plan and build a futuristic personal AI website.">
-                <img class="suggestion-image" src="https://images.unsplash.com/photo-1761479344889-704fd47409db?auto=format&amp;fit=crop&amp;w=900&amp;q=78" alt="" loading="lazy" decoding="async">
-                <span class="suggestion-icon" aria-hidden="true">✧</span><span class="suggestion-arrow" aria-hidden="true">↗</span>
-                <span class="suggestion-copy"><b>Build something</b><small>Turn a vision into a real project</small></span>
-              </button>
-              <button class="suggestion" data-prompt="Research the most useful AI agent tools available right now and compare them with sources.">
-                <img class="suggestion-image" src="https://images.unsplash.com/photo-1753013811032-f6c2b248694a?auto=format&amp;fit=crop&amp;w=900&amp;q=78" alt="" loading="lazy" decoding="async">
-                <span class="suggestion-icon" aria-hidden="true">⌕</span><span class="suggestion-arrow" aria-hidden="true">↗</span>
-                <span class="suggestion-copy"><b>Research a topic</b><small>Discover useful ideas with evidence</small></span>
-              </button>
-              <button class="suggestion" data-prompt="Help me generate 5 original creative concepts for a cinematic short video.">
-                <img class="suggestion-image" src="https://images.unsplash.com/photo-1782444450393-459c2ea599f2?auto=format&amp;fit=crop&amp;w=900&amp;q=78" alt="" loading="lazy" decoding="async">
-                <span class="suggestion-icon" aria-hidden="true">✴</span><span class="suggestion-arrow" aria-hidden="true">↗</span>
-                <span class="suggestion-copy"><b>Create something</b><small>Shape a bold new creative direction</small></span>
-              </button>
             </div>
           </div>
           <div id="messages" class="messages" aria-live="polite"></div>
