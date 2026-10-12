@@ -217,7 +217,7 @@ function refreshVoiceOutputHint(){
   if(!ui.voiceOutputHint)return;
   const language=ui.voiceLanguage.value||'en-US';
   if(language==='ne-NP'){
-    ui.voiceOutputHint.textContent='NYVEX cloud Nepali speech is enabled. Your phone does not need a Nepali voice pack. Free-tier quotas and limits apply.';
+    ui.voiceOutputHint.textContent='Roman Nepali selected: replies use Latin letters (for example, “Namaste, timi kasto chau?”) and are spoken as Nepali. Cloud voice quotas apply.';
     ui.voiceOutputHint.classList.remove('warning');
     return;
   }
@@ -288,7 +288,7 @@ async function speakCloudText(text,language,onEnd){
   if('speechSynthesis' in window)window.speechSynthesis.cancel();
   if(ui.voiceOutputHint){
     ui.voiceOutputHint.textContent=language==='ne-NP'
-      ? 'Generating Nepali audio with NYVEX cloud voice…'
+      ? 'Generating Roman Nepali speech with NYVEX cloud voice…'
       : 'Generating audio with NYVEX cloud voice…';
     ui.voiceOutputHint.classList.remove('warning');
   }
@@ -317,7 +317,7 @@ async function speakCloudText(text,language,onEnd){
     audio.onplay=()=>{
       if(ui.voiceOutputHint){
         ui.voiceOutputHint.textContent=language==='ne-NP'
-          ? 'Speaking with NYVEX cloud Nepali voice. Your phone does not need a Nepali voice pack.'
+          ? 'Speaking Roman Nepali with NYVEX cloud voice.'
           : 'Speaking with NYVEX cloud voice.';
         ui.voiceOutputHint.classList.remove('warning');
       }
