@@ -408,7 +408,7 @@ async function api(req,res,url) {
         headers:{'Content-Type':'application/json','x-goog-api-key':key},
         signal:controller.signal,
         body:JSON.stringify({
-          contents:[{role:'user',parts:[{text:style+'\\n\\nText to speak verbatim:\\n'+text}]}],
+          contents:[{role:'user',parts:[{text:style+'\n\nText to speak verbatim:\n'+text}]}],
           generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:'Charon'}}}}
         })
       });
@@ -427,7 +427,7 @@ async function api(req,res,url) {
       // Gemini TTS generateContent commonly returns raw 16-bit PCM, not a playable WAV.
       // Wrap PCM in a WAV container so mobile browsers can play it.
       if(!audioType.includes('wav')) {
-        const sampleRateMatch=audioType.match(/rate=(\\d+)/);
+        const sampleRateMatch=audioType.match(/rate=(\d+)/);
         const sampleRate=sampleRateMatch?Number(sampleRateMatch[1]):24000;
         if(!Number.isFinite(sampleRate)||sampleRate<8000||sampleRate>96000) return error(res,502,'The cloud voice returned an unsupported audio format. Try again.','TTS_AUDIO_FORMAT');
         const wavHeader=Buffer.alloc(44);
