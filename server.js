@@ -156,6 +156,13 @@ const MODES = {
 };
 const workspace = path.join(ROOT, 'agent-workspace', 'notes');
 fs.mkdirSync(workspace, { recursive: true });
+function userNotesWorkspace(session) {
+  const id = String(session?.user?.id || '');
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return workspace;
+  const dir = path.join(ROOT, 'agent-workspace', 'users', id, 'notes');
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
 function reply(res, status, data) {
   const body = JSON.stringify(data);
   res.writeHead(status, { 'Content-Type':'application/json; charset=utf-8', 'Content-Length':Buffer.byteLength(body), 'Cache-Control':'no-store', 'X-Content-Type-Options':'nosniff', 'Referrer-Policy':'no-referrer', 'X-Frame-Options':'DENY', 'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'" });
@@ -255,13 +262,15 @@ async function runTool(name,args,session=null) {
     if (name==='list_memories') return {ok:true,memories:await listUserMemories(session)};
     if (name==='calculate') return {ok:true,...calc(args.expression)};
     if (name==='web_search') return {ok:true,...await searchWeb(args.query)};
-    if (name==='list_notes') return {ok:true,notes:fs.readdirSync(workspace).filter(f=>f.endsWith('.txt')).slice(0,100)};
+    if (name==='list_notes') { const dir=userNotesWorkspace(session); return {ok:true,notes:fs.readdirSync(dir).filter(f=>f.endsWith('.txt')).slice(0,100)}; }
     if (name==='create_note') {
       let filename=path.basename(String(args.filename||'note.txt')).replace(/[^a-zA-Z0-9._-]/g,'-').slice(0,70);
       if(!filename||filename==='.'||filename==='..') filename=`note-${Date.now()}.txt`; if(!filename.endsWith('.txt')) filename += '.txt';
-      const content=String(args.content||'').slice(0,12000), target=path.join(workspace,filename);
+      const dir=userNotesWorkspace(session), content=String(args.content||'').slice(0,12000), target=path.join(dir,filename);
       if(fs.existsSync(target)) return {ok:false,error:'That note already exists; choose another filename.'};
-      fs.writeFileSync(target,content,{flag:'wx'}); return {ok:true,savedAs:`agent-workspace/notes/${filename}`,characters:content.length};
+      fs.writeFileSync(target,content,{flag:'wx'});
+      const savedAs=session?.user?.id?`agent-workspace/users/${session.user.id}/notes/${filename}`:`agent-workspace/notes/${filename}`;
+      return {ok:true,savedAs,characters:content.length};
     }
     return {ok:false,error:'Tool not available.'};
   } catch(e) { return {ok:false,error:e.message||'Tool failed.'}; }
