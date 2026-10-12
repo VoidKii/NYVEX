@@ -18,13 +18,22 @@ A futuristic, private-by-default AI workspace built with Node.js and plain brows
 
 Create a Node Web Service from this repository. Use build command `npm install` and start command `npm start`. In the Render service's **Environment** settings, add `GEMINI_API_KEY`, set `GEMINI_MODEL=gemini-3.1-flash-lite`, and set a strong, unique `NYVEX_ACCESS_PASSWORD`. NYVEX prefers Gemini whenever `GEMINI_API_KEY` is present; it can fall back to `OPENAI_API_KEY` if no Gemini key is set. Google offers a free tier for eligible Gemini API models, but project/model quotas apply and can change. Use the free tier only; don't attach paid billing just to make this work. If Google requires the account holder to be an adult, ask a parent/guardian to create and manage the key—do not bypass age or account rules. Enter the key directly in Render; never put it in the repo or share it in chat. GitHub repository secrets do not automatically become environment variables for a running web service. Share the NYVEX access password only with people you trust: everyone shares the same model quota.
 
+## Use NYVEX on a phone
+
+NYVEX is a responsive web app and can be added to a phone's home screen from its browser. Open the Render URL over HTTPS, unlock the workspace, then:
+
+- **Android:** open the browser menu and choose **Install app** or **Add to Home screen**. The in-page Install button opens the install prompt where supported.
+- **iPhone:** open the page in Safari, tap **Share**, then **Add to Home Screen**.
+
+The app shell can open from cache after it has been visited, but chat, login, research, and AI requests still need an internet connection. Do not treat this as a fully offline AI app. The same current workspace access password is shared by anyone you invite; individual accounts and per-user cloud memory are not implemented yet.
+
 ## What is included
 
 - DREAM, FORGE, SCOUT, and TACTIC modes.
 - Chat and structured mission planner.
 - Bounded tool loop (up to four rounds) with visible tool activity.
 - Web search, safe arithmetic, and workspace note creation/listing.
-- Browser-side chat history and checkable mission tasks.
+- Browser-side chat history and checkable mission tasks.\n- Responsive phone layout, installable web-app manifest, and a small offline app-shell cache that never caches AI/API responses.
 - Password-protected access, signed HttpOnly sessions, request-size limits, per-IP throttling, security headers, and same-origin API checks.
 - No local AI model required, so the laptop does not need to run a large model. Cloud API limits and charges still apply.
 
