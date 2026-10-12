@@ -153,5 +153,33 @@ async function status(){try{
   if(d.configured){$('#provider-state').textContent='AI brain connected';$('#provider-model').textContent=d.model||'Cloud AI';pulse.classList.add('on');pulse.classList.remove('off');$('#core-status').textContent='ONLINE';}
   else{$('#provider-state').textContent='AI key needed';$('#provider-model').textContent='Check provider setup';pulse.classList.add('off');$('#core-status').textContent='WAITING';}
 }catch{$('#provider-state').textContent='Server unreachable';$('#provider-model').textContent='Start NYVEX to connect';$('#core-status').textContent='OFFLINE';}}
+function speakText(text){
+  if(!('speechSynthesis' in window)||!window.SpeechSynthesisUtterance){toast('Spoken replies are not supported in this browser.',true);return;}
+  window.speechSynthesis.cancel();
+  const utterance=new SpeechSynthesisUtterance(String(text||'').replace(/https?:\/\/\S+/g,'link').slice(0,5000));
+  utterance.lang='en-US';utterance.rate=1;utterance.pitch=1;
+  window.speechSynthesis.speak(utterance);
+}
+function refreshVoiceToggle(){ui.voiceToggle.textContent=voiceAuto?'🔊 Voice on':'🔊 Voice off';ui.voiceToggle.setAttribute('aria-pressed',String(voiceAuto));}
+ui.voiceToggle.addEventListener('click',()=>{
+  voiceAuto=!voiceAuto;localStorage.setItem('nyvex.voice.autoplay',String(voiceAuto));refreshVoiceToggle();
+  if(!voiceAuto&&'speechSynthesis' in window)window.speechSynthesis.cancel();
+  toast(voiceAuto?'NYVEX will speak replies aloud.':'Spoken replies turned off.');
+});
+ui.voiceInput.addEventListener('click',()=>{
+  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(isListening&&recognition){recognition.stop();return;}
+  if(!SpeechRecognition){toast('Voice input is not available in this browser. Try Chrome on Android or desktop, or use typing.',true);return;}
+  try{
+    recognition=new SpeechRecognition();recognition.lang='en-US';recognition.continuous=false;recognition.interimResults=false;recognition.maxAlternatives=1;
+    recognition.onstart=()=>{isListening=true;ui.voiceInput.classList.add('listening');ui.voiceInput.textContent='■ Stop';toast('Listening — say your message.');};
+    recognition.onresult=e=>{const phrase=String(e.results?.[0]?.[0]?.transcript||'').trim();if(phrase){ui.prompt.value=phrase;sendMessage(phrase);}};
+    recognition.onerror=e=>{toast(e.error==='not-allowed'?'Allow microphone access in your browser settings.':'Voice input stopped. Try again or type your message.',true);};
+    recognition.onend=()=>{isListening=false;ui.voiceInput.classList.remove('listening');ui.voiceInput.textContent='🎙';};
+    recognition.start();
+  }catch{toast('Could not start the microphone. Check browser permission and try again.',true);}
+});
+refreshVoiceToggle();
+
 renderHistory();updateActivity([]);status();
 if('serviceWorker' in navigator && location.protocol==='https:'){navigator.serviceWorker.register('/sw.js').catch(()=>{});}
