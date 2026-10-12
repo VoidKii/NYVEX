@@ -2,7 +2,13 @@
 const $ = (s) => document.querySelector(s);
 const ui = { messages:$('#messages'), prompt:$('#prompt'), composer:$('#composer'), send:$('#send'), thinking:$('#thinking'), thinkingLabel:$('#thinking-label'), welcome:$('#welcome-panel'), activity:$('#activity-list'), activityCount:$('#activity-count'), planForm:$('#plan-form'), goal:$('#goal'), planButton:$('#plan-button'), planOutput:$('#plan-output'), toast:$('#toast'), authWall:$('#auth-wall'), authForm:$('#auth-form'), authPassword:$('#auth-password'), authMessage:$('#auth-message'), authError:$('#auth-error'), authSetup:$('#auth-setup') };
 let mode='DREAM', busy=false, toastTimer, installPrompt=null;
-const STORAGE='nyvex.history.v2', CHAT='nyvex.current.v2';\nconst installButton=$('#install-app');\nfunction refreshInstallButton(){if(!installButton)return;const standalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;installButton.classList.toggle('hidden',standalone);}\nwindow.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;refreshInstallButton();});\nwindow.addEventListener('appinstalled',()=>{installPrompt=null;refreshInstallButton();toast('NYVEX installed on this device.');});\nif(installButton)installButton.addEventListener('click',async()=>{if(installPrompt){installPrompt.prompt();try{await installPrompt.userChoice;}catch{}installPrompt=null;refreshInstallButton();return;}toast('Android: use your browser menu → Install app / Add to Home screen. iPhone: Share → Add to Home Screen.');});\nrefreshInstallButton();
+const STORAGE='nyvex.history.v2', CHAT='nyvex.current.v2';
+const installButton=$('#install-app');
+function refreshInstallButton(){if(!installButton)return;const standalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;installButton.classList.toggle('hidden',standalone);}
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;refreshInstallButton();});
+window.addEventListener('appinstalled',()=>{installPrompt=null;refreshInstallButton();toast('NYVEX installed on this device.');});
+if(installButton)installButton.addEventListener('click',async()=>{if(installPrompt){installPrompt.prompt();try{await installPrompt.userChoice;}catch{}installPrompt=null;refreshInstallButton();return;}toast('Android: use your browser menu → Install app / Add to Home screen. iPhone: Share → Add to Home Screen.');});
+refreshInstallButton();
 let history=[];
 try { history=JSON.parse(localStorage.getItem(STORAGE)||'[]'); if(!Array.isArray(history))history=[]; } catch { history=[]; }
 let messages=[];
@@ -71,4 +77,5 @@ async function status(){try{
   if(d.configured){$('#provider-state').textContent='AI brain connected';$('#provider-model').textContent=d.model||'OpenAI model';pulse.classList.add('on');pulse.classList.remove('off');$('#core-status').textContent='ONLINE';}
   else{$('#provider-state').textContent='API key needed';$('#provider-model').textContent='Add GEMINI_API_KEY';pulse.classList.add('off');$('#core-status').textContent='WAITING';}
 }catch{$('#provider-state').textContent='Server unreachable';$('#provider-model').textContent='Start NYVEX to connect';$('#core-status').textContent='OFFLINE';}}
-renderHistory();updateActivity([]);status();\nif('serviceWorker' in navigator && location.protocol==='https:'){navigator.serviceWorker.register('/sw.js').catch(()=>{});}
+renderHistory();updateActivity([]);status();
+if('serviceWorker' in navigator && location.protocol==='https:'){navigator.serviceWorker.register('/sw.js').catch(()=>{});}
