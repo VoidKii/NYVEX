@@ -218,7 +218,6 @@
     if(!palette[next]) return;
     mode=next;
     stage.dataset.mode=next.toLowerCase();
-    stage.style.setProperty('--visual-mode', next.toLowerCase());
   }
 
   stage.addEventListener('pointermove',event=>{
