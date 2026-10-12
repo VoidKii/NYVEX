@@ -213,7 +213,10 @@ class NYVEXNativeSpeechRecognitionAdapter{
       try{
         const available=await this.plugin.available();
         if(!available||!available.available)throw Object.assign(new Error('Speech recognition is unavailable on this device.'),{code:'unavailable'});
-        if(typeof this.plugin.requestPermission==='function'){
+        if(typeof this.plugin.requestPermissions==='function'){
+          const permission=await this.plugin.requestPermissions();
+          if(permission&&permission.speechRecognition&&permission.speechRecognition!=='granted')throw Object.assign(new Error('Microphone permission was not granted.'),{code:'not-allowed'});
+        }else if(typeof this.plugin.requestPermission==='function'){
           const permission=await this.plugin.requestPermission();
           if(permission&&permission.speechRecognition==='denied')throw Object.assign(new Error('Microphone permission was denied.'),{code:'not-allowed'});
         }
