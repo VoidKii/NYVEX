@@ -1,11 +1,12 @@
 'use strict';
-const CACHE='nyvex-shell-v11';
+const CACHE='nyvex-shell-v12';
 const ASSETS=[
   '/',
   '/index.html',
   '/styles.css?v=11',
   '/nyvex-studio.css?v=3',
-  '/app.js?v=13',
+  '/app.js?v=14',
+  '/native-speech-bridge.js?v=1',
   '/nyvex-vfx.js?v=1',
   '/favicon.svg',
   '/manifest.webmanifest'
@@ -25,7 +26,7 @@ self.addEventListener('fetch',event=>{
   if(request.method!=='GET') return;
   const url=new URL(request.url);
   if(url.origin!==self.location.origin||url.pathname.startsWith('/api/')) return;
-  const shellPaths=['/','/index.html','/styles.css','/nyvex-studio.css','/app.js','/nyvex-vfx.js','/favicon.svg','/manifest.webmanifest'];
+  const shellPaths=['/','/index.html','/styles.css','/nyvex-studio.css','/app.js','/native-speech-bridge.js','/nyvex-vfx.js','/favicon.svg','/manifest.webmanifest'];
   if(!shellPaths.includes(url.pathname)) return;
   if(request.mode==='navigate'){
     event.respondWith(fetch(request).then(response=>{
