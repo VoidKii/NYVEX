@@ -1,6 +1,6 @@
 'use strict';
 const $ = (s) => document.querySelector(s);
-const ui = { messages:$('#messages'), prompt:$('#prompt'), composer:$('#composer'), send:$('#send'), thinking:$('#thinking'), thinkingLabel:$('#thinking-label'), welcome:$('#welcome-panel'), activity:$('#activity-list'), activityCount:$('#activity-count'), planForm:$('#plan-form'), goal:$('#goal'), planButton:$('#plan-button'), planOutput:$('#plan-output'), toast:$('#toast'), authWall:$('#auth-wall'), authForm:$('#auth-form'), authEmail:$('#auth-email'), authPassword:$('#auth-password'), authMessage:$('#auth-message'), authError:$('#auth-error'), authSetup:$('#auth-setup'), memoryPanel:$('#memory-panel'), memoryForm:$('#memory-form'), memoryInput:$('#memory-input'), memoryList:$('#memory-list'), memorySave:$('#memory-save'), memoryCount:$('#memory-count'), authSignup:$('#auth-signup'), logoutButton:$('#logout-button'), accountEmail:$('#account-email'), voiceInput:$('#voice-input'), voiceToggle:$('#voice-toggle'), voiceModal:$('#voice-modal'), voiceModeOpen:$('#voice-mode-open'), voiceStatus:$('#voice-status'), voiceStatusLight:$('#voice-status-light'), voiceCaption:$('#voice-caption'), voiceUserText:$('#voice-user-text'), voiceAiText:$('#voice-ai-text'), voiceStart:$('#voice-start'), voiceStop:$('#voice-stop'), voiceReplies:$('#voice-replies'), voiceLanguage:$('#voice-language'), voiceClose:$('#voice-close') };
+const ui = { messages:$('#messages'), prompt:$('#prompt'), composer:$('#composer'), send:$('#send'), thinking:$('#thinking'), thinkingLabel:$('#thinking-label'), welcome:$('#welcome-panel'), activity:$('#activity-list'), activityCount:$('#activity-count'), planForm:$('#plan-form'), goal:$('#goal'), planButton:$('#plan-button'), planOutput:$('#plan-output'), toast:$('#toast'), authWall:$('#auth-wall'), authForm:$('#auth-form'), authEmail:$('#auth-email'), authPassword:$('#auth-password'), authMessage:$('#auth-message'), authError:$('#auth-error'), authSetup:$('#auth-setup'), memoryPanel:$('#memory-panel'), memoryForm:$('#memory-form'), memoryInput:$('#memory-input'), memoryList:$('#memory-list'), memorySave:$('#memory-save'), memoryCount:$('#memory-count'), authSignup:$('#auth-signup'), logoutButton:$('#logout-button'), accountEmail:$('#account-email'), voiceInput:$('#voice-input'), voiceToggle:$('#voice-toggle'), voiceModal:$('#voice-modal'), voiceModeOpen:$('#voice-mode-open'), voiceStatus:$('#voice-status'), voiceStatusLight:$('#voice-status-light'), voiceCaption:$('#voice-caption'), voiceUserText:$('#voice-user-text'), voiceAiText:$('#voice-ai-text'), voiceStart:$('#voice-start'), voiceStop:$('#voice-stop'), voiceReplies:$('#voice-replies'), voiceLanguage:$('#voice-language'), voiceOutputHint:$('#voice-output-hint'), voiceClose:$('#voice-close') };
 let mode='DREAM', busy=false, toastTimer, installPrompt=null, voiceAuto=localStorage.getItem('nyvex.voice.autoplay')==='true', recognition=null, isListening=false, authMode='legacy', activeUserId='guest', lastMemoryUser=null, voiceSessionActive=false, voiceTurnInProgress=false, voiceRetryTimer=null, voiceReplyAudio=localStorage.getItem('nyvex.voice.replies')!=='false';
 let STORAGE='nyvex.history.v2.guest', CHAT='nyvex.current.v2.guest';
 const installButton=$('#install-app');
@@ -47,7 +47,13 @@ async function sendMessage(text, options={}){
   ui.prompt.value='';ui.prompt.style.height='auto';setBusy(true);updateActivity([]);
   let voiceCallbackScheduled=false;
   try{
-    const res=await fetch('/api/agent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode,messages:messages.slice(-18)})});
+    const requestMessages=options.fromVoice
+      ? messages.slice(-8).map(m=>({role:m.role,content:String(m.content||'').slice(-1200)}))
+      : messages.slice(-18);
+    const endpoint=options.fromVoice?'/api/chat':'/api/agent';
+    const payload={mode,messages:requestMessages};
+    if(options.fromVoice)payload.voiceLanguage=ui.voiceLanguage.value||'en-US';
+    const res=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const data=await res.json();
     if(!res.ok)throw new Error(data.error||'Request failed.');
     const answer=String(data.reply||'NYVEX returned an empty response.');
@@ -198,6 +204,38 @@ function setVoiceStatus(status,caption){
   ui.voiceStatusLight.classList.toggle('on',voiceSessionActive);
   ui.voiceModal.classList.toggle('voice-active',voiceSessionActive);
 }
+function matchingSpeechVoice(language){
+  if(!('speechSynthesis' in window))return null;
+  const voices=window.speechSynthesis.getVoices();
+  const normal=value=>String(value||'').toLowerCase().replace(/_/g,'-');
+  const target=normal(language);
+  return voices.find(v=>normal(v.lang)===target)
+    ||voices.find(v=>normal(v.lang).split('-')[0]===target.split('-')[0])
+    ||null;
+}
+function refreshVoiceOutputHint(){
+  if(!ui.voiceOutputHint)return;
+  if(!('speechSynthesis' in window)||!window.SpeechSynthesisUtterance){
+    ui.voiceOutputHint.textContent='This browser does not support spoken replies. You can still use voice input if supported.';
+    ui.voiceOutputHint.classList.add('warning');
+    return;
+  }
+  const language=ui.voiceLanguage.value||'en-US';
+  const voices=window.speechSynthesis.getVoices();
+  const voice=matchingSpeechVoice(language);
+  ui.voiceOutputHint.classList.remove('warning');
+  if(voice){
+    ui.voiceOutputHint.textContent='Speech voice ready: '+voice.name+' · '+voice.lang+'.';
+  }else if(!voices.length){
+    ui.voiceOutputHint.textContent='Checking speech voices on this device. Language availability depends on your phone’s text-to-speech engine.';
+  }else if(language==='ne-NP'){
+    ui.voiceOutputHint.textContent='No Nepali speech voice is listed on this device. NYVEX can reply in Nepali text, but spoken output may use a fallback voice. Check your phone’s Text-to-speech settings for Nepali voice data.';
+    ui.voiceOutputHint.classList.add('warning');
+  }else{
+    ui.voiceOutputHint.textContent='No '+language+' voice is listed on this device. The system may use its default voice.';
+    ui.voiceOutputHint.classList.add('warning');
+  }
+}
 function speakText(text,onEnd){
   if(!('speechSynthesis' in window)||!window.SpeechSynthesisUtterance){
     toast('Spoken replies are not supported in this browser.',true);
@@ -205,18 +243,27 @@ function speakText(text,onEnd){
     return false;
   }
   window.speechSynthesis.cancel();
-  const utterance=new SpeechSynthesisUtterance(String(text||'').replace(/https?:\/\/\S+/g,'link').slice(0,5000));
   const language=ui.voiceLanguage?ui.voiceLanguage.value:'en-US';
-  utterance.lang=language;utterance.rate=0.96;utterance.pitch=0.94;utterance.volume=1;
-  try{
-    const voices=window.speechSynthesis.getVoices();
-    const exact=voices.find(v=>String(v.lang||'').toLowerCase()===language.toLowerCase());
-    const matching=voices.find(v=>String(v.lang||'').toLowerCase().startsWith(language.slice(0,2).toLowerCase()));
-    if(exact||matching)utterance.voice=exact||matching;
-  }catch{}
+  const utterance=new SpeechSynthesisUtterance(String(text||'').replace(/https?:\/\/\\S+/g,'link').slice(0,3200));
+  utterance.lang=language;utterance.rate=0.98;utterance.pitch=0.96;utterance.volume=1;
+  const voice=matchingSpeechVoice(language);
+  if(voice)utterance.voice=voice;
+  else refreshVoiceOutputHint();
   let completed=false;
   const finish=()=>{if(completed)return;completed=true;if(typeof onEnd==='function')onEnd();};
-  utterance.onend=finish;utterance.onerror=finish;
+  utterance.onstart=()=>{
+    if(voiceSessionActive)setVoiceStatus('NYVEX speaking','Speaking your reply. I will listen again when the answer finishes.');
+  };
+  utterance.onend=finish;
+  utterance.onerror=event=>{
+    if(event.error==='voice-unavailable'||event.error==='synthesis-failed'){
+      if(language==='ne-NP'){
+        ui.voiceOutputHint.textContent='Your device could not speak Nepali with its current speech engine. Check Android Text-to-speech settings and install a Nepali voice if available.';
+        ui.voiceOutputHint.classList.add('warning');
+      }
+    }
+    finish();
+  };
   window.speechSynthesis.speak(utterance);
   return true;
 }
@@ -248,7 +295,7 @@ function openVoiceMode(){
   }else{
     setVoiceStatus('Voice input unavailable','This browser does not support speech recognition. Try a current version of Chrome or Edge, or use the normal chat controls.');
   }
-  refreshVoiceReplyButton();
+  refreshVoiceReplyButton();refreshVoiceOutputHint();
   (supported?ui.voiceStart:ui.voiceClose).focus({preventScroll:true});
 }
 function closeVoiceMode(){
@@ -387,12 +434,19 @@ ui.voiceReplies.addEventListener('click',()=>{
 });
 ui.voiceInput.addEventListener('click',startOneShotVoiceInput);
 ui.voiceLanguage.addEventListener('change',()=>{
+  localStorage.setItem('nyvex.voice.language',ui.voiceLanguage.value);
+  refreshVoiceOutputHint();
   if(voiceSessionActive&&isListening&&recognition){try{recognition.stop();}catch{}}
 });
+if('speechSynthesis' in window&&typeof window.speechSynthesis.addEventListener==='function'){
+  window.speechSynthesis.addEventListener('voiceschanged',refreshVoiceOutputHint);
+}
+const savedVoiceLanguage=localStorage.getItem('nyvex.voice.language');
+if(savedVoiceLanguage&&['en-US','ne-NP','hi-IN'].includes(savedVoiceLanguage))ui.voiceLanguage.value=savedVoiceLanguage;
 window.addEventListener('keydown',event=>{
   if(event.key==='Escape'&&!ui.voiceModal.classList.contains('hidden'))closeVoiceMode();
 });
-refreshVoiceToggle();refreshVoiceReplyButton();
+refreshVoiceToggle();refreshVoiceReplyButton();refreshVoiceOutputHint();
 
 renderHistory();updateActivity([]);status();
 if('serviceWorker' in navigator && location.protocol==='https:'){navigator.serviceWorker.register('/sw.js').catch(()=>{});}
