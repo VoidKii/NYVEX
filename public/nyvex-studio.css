@@ -64,7 +64,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .breadcrumb b { color:#eae6ff; font-weight:620; }
 .breadcrumb .slash { color:#514c70; }
 .top-actions { gap:13px; }
-.new-chat-mobile { display:none; align-items:center; gap:5px; min-height:33px; padding:0 10px; border:1px solid rgba(189,176,255,.16); border-radius:9px; background:rgba(255,255,255,.025); color:#c5bce2; font-size:10px; font-weight:620; }\n.voice-launch-button { display:inline-flex; align-items:center; gap:9px; min-height:35px; padding:0 13px; border:1px solid rgba(189,176,255,.24); border-radius:9px; background:rgba(160,143,255,.08); color:#ddd5ff; font-size:10px; font-weight:650; }
+.new-chat-mobile { display:none; align-items:center; gap:5px; min-height:33px; padding:0 10px; border:1px solid rgba(189,176,255,.16); border-radius:9px; background:rgba(255,255,255,.025); color:#c5bce2; font-size:10px; font-weight:620; }
+.voice-launch-button { display:inline-flex; align-items:center; gap:9px; min-height:35px; padding:0 13px; border:1px solid rgba(189,176,255,.24); border-radius:9px; background:rgba(160,143,255,.08); color:#ddd5ff; font-size:10px; font-weight:650; }
 .voice-launch-button:hover { border-color:rgba(189,176,255,.5); background:rgba(160,143,255,.15); }
 .voice-launch-button .voice-glyph { font-size:16px; color:var(--studio-cyan); line-height:1; }
 .account-email { max-width:150px; color:#a8a4bf; font-size:10px; }
