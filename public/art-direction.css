@@ -29,3 +29,52 @@ body::before{display:block;opacity:.35;background-size:64px 64px;background-imag
 @media(max-width:700px){.app-shell{grid-template-columns:1fr}.sidebar{display:none}.topbar{height:56px;padding:0 13px}.content-grid{padding:15px 14px 22px;gap:24px}.chat-column{min-height:calc(100dvh - 90px)}.welcome{padding:28px 0 22px;min-height:0;overflow:visible}.welcome::before{width:280px;height:280px;right:-100px;top:0}.welcome>.eyebrow{font-size:8px;letter-spacing:.15em}.core-wrap{position:relative;right:auto;top:auto;width:150px;height:150px;margin:25px auto 8px;transform:scale(.82);opacity:.95}.welcome h1{font-size:clamp(43px,12vw,59px);margin:17px 0 0;max-width:100%;line-height:1.02;text-align:center;letter-spacing:-.06em}.welcome-copy{font-size:12px;margin:15px auto 0;text-align:center;max-width:320px}.suggestions{grid-template-columns:1fr;margin-top:27px;gap:8px}.suggestion{min-height:78px;padding:12px 13px;display:grid;grid-template-columns:32px minmax(0,1fr) 18px;grid-template-rows:auto auto;column-gap:11px;align-content:center}.suggestion>span:first-child{grid-row:1/3;margin:0;align-self:center}.suggestion b{align-self:end;font-size:11px}.suggestion small{align-self:start;margin-top:3px}.suggestion-arrow{position:static;grid-column:3;grid-row:1/3;align-self:center}.composer{padding:11px;border-radius:13px}.composer-hint{display:none}.composer-bottom{align-items:flex-end}.composer-tools{flex-wrap:wrap;max-width:72%}.tool-pill{display:none}.voice-button{font-size:9px}.send-button{padding:0 10px;min-width:88px}.right-rail{grid-template-columns:1fr;gap:10px}.rail-heading,.rail-footer{grid-column:auto}.panel{padding:14px}.secure-tag{display:none}.top-actions{gap:6px}.account-email{max-width:90px}}
 @media(max-width:390px){.welcome h1{font-size:41px}.core-wrap{margin-top:16px}.voice-button{padding:6px}.send-button{min-width:77px;font-size:10px}}
 @media(prefers-reduced-motion:reduce){.core-ring,.core-glint{animation:none!important}}
+
+
+/* NYVEX — editorial finish: oversized type, cinematic negative space, fewer controls */
+.welcome{padding-top:56px;min-height:490px}
+.welcome h1{max-width:540px;font-size:clamp(60px,6.2vw,88px);line-height:.96;letter-spacing:-.072em;margin-top:48px}
+.welcome h1 span{display:block;margin-top:7px}
+.welcome-copy{font-size:14px;max-width:400px;margin-top:23px;color:#aaa9c7}
+.core-wrap{right:5px;top:83px;transform:scale(1.08)}
+.suggestions{max-width:850px;margin-top:44px;gap:13px}
+.suggestion{min-height:145px;padding:18px 17px;position:relative;overflow:hidden}
+.suggestion::after{content:"";position:absolute;width:110px;height:110px;right:-65px;bottom:-72px;border-radius:50%;background:rgba(145,131,255,.10);filter:blur(5px);pointer-events:none}
+.suggestion b{font-size:12px;letter-spacing:-.015em}
+.suggestion small{max-width:180px;font-size:10px}
+.composer{border-radius:16px;background:linear-gradient(145deg,rgba(24,24,43,.98),rgba(12,13,24,.99));border-color:rgba(176,169,255,.23)}
+.composer-tools{display:none!important}
+.composer-bottom{justify-content:flex-end;border-top:1px solid rgba(176,169,255,.13);margin-top:6px;padding-top:10px}
+.composer .send-button{min-width:122px;justify-content:center;gap:14px}
+.install-button,.clear-chat,.avatar{display:none!important}
+.secure-tag{display:none!important}
+.topbar{justify-content:space-between}
+.content-grid:has(#welcome-panel:not(.hidden)){grid-template-columns:minmax(0,1fr);max-width:1250px;padding-top:26px}
+.content-grid:has(#welcome-panel:not(.hidden)) .right-rail{display:none}
+.content-grid:has(#welcome-panel:not(.hidden)) .chat-column{max-width:1020px;margin:0 auto;width:100%}
+.content-grid:has(#welcome-panel:not(.hidden)) .welcome{max-width:940px}
+@media(min-width:1400px){
+ .content-grid:has(#welcome-panel:not(.hidden)){padding-top:39px}
+ .content-grid:has(#welcome-panel:not(.hidden)) .welcome{min-height:520px}
+ .content-grid:has(#welcome-panel:not(.hidden)) .core-wrap{right:4px;top:61px;transform:scale(1.22)}
+ .content-grid:has(#welcome-panel:not(.hidden)) .welcome h1{font-size:90px;max-width:600px}
+}
+@media(max-width:1100px){
+ .welcome{min-height:450px}
+ .welcome h1{font-size:clamp(54px,7vw,72px);max-width:500px}
+ .core-wrap{right:-5px;top:80px;transform:scale(.83);opacity:.8}
+}
+@media(max-width:700px){
+ .welcome{padding-top:30px;min-height:0}
+ .welcome h1{font-size:clamp(49px,13vw,66px);line-height:.98;max-width:100%;margin-top:28px;text-align:center}
+ .welcome h1 span{display:inline;margin-top:0}
+ .welcome-copy{font-size:12px;margin:17px auto 0;text-align:center}
+ .core-wrap{position:relative;right:auto;top:auto;width:180px;height:180px;margin:13px auto 2px;transform:scale(.78);opacity:.9}
+ .welcome>.eyebrow{justify-content:center}
+ .suggestions{margin-top:30px}
+ .composer-tools{display:none!important}
+ .composer-bottom{justify-content:flex-end}
+ .composer .send-button{min-width:108px}
+ .content-grid:has(#welcome-panel:not(.hidden)){padding:13px 14px 22px}
+ .content-grid:has(#welcome-panel:not(.hidden)) .welcome{min-height:0}
+}
