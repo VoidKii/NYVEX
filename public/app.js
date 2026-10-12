@@ -1,8 +1,8 @@
 'use strict';
 const $ = (s) => document.querySelector(s);
 const ui = { messages:$('#messages'), prompt:$('#prompt'), composer:$('#composer'), send:$('#send'), thinking:$('#thinking'), thinkingLabel:$('#thinking-label'), welcome:$('#welcome-panel'), activity:$('#activity-list'), activityCount:$('#activity-count'), planForm:$('#plan-form'), goal:$('#goal'), planButton:$('#plan-button'), planOutput:$('#plan-output'), toast:$('#toast'), authWall:$('#auth-wall'), authForm:$('#auth-form'), authEmail:$('#auth-email'), authPassword:$('#auth-password'), authMessage:$('#auth-message'), authError:$('#auth-error'), authSetup:$('#auth-setup'), memoryPanel:$('#memory-panel'), memoryForm:$('#memory-form'), memoryInput:$('#memory-input'), memoryList:$('#memory-list'), memorySave:$('#memory-save'), memoryCount:$('#memory-count'), authSignup:$('#auth-signup'), logoutButton:$('#logout-button'), accountEmail:$('#account-email'), voiceInput:$('#voice-input'), voiceToggle:$('#voice-toggle') };
-let mode='DREAM', busy=false, toastTimer, installPrompt=null, voiceAuto=localStorage.getItem('nyvex.voice.autoplay')==='true', recognition=null, isListening=false;
-const STORAGE='nyvex.history.v2', CHAT='nyvex.current.v2';
+let mode='DREAM', busy=false, toastTimer, installPrompt=null, voiceAuto=localStorage.getItem('nyvex.voice.autoplay')==='true', recognition=null, isListening=false, authMode='legacy', activeUserId='guest', lastMemoryUser=null;
+let STORAGE='nyvex.history.v2.guest', CHAT='nyvex.current.v2.guest';
 const installButton=$('#install-app');
 function refreshInstallButton(){if(!installButton)return;const standalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;installButton.classList.toggle('hidden',standalone);}
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;refreshInstallButton();});
@@ -14,6 +14,14 @@ try { history=JSON.parse(localStorage.getItem(STORAGE)||'[]'); if(!Array.isArray
 let messages=[];
 try { messages=JSON.parse(localStorage.getItem(CHAT)||'[]'); if(!Array.isArray(messages))messages=[]; } catch { messages=[]; }
 function save(){try{localStorage.setItem(CHAT,JSON.stringify(messages.slice(-36)));}catch{}}
+function switchAccount(userId){
+  const next=String(userId||'guest');if(next===activeUserId)return false;
+  activeUserId=next;STORAGE='nyvex.history.v2.'+next;CHAT='nyvex.current.v2.'+next;
+  try{history=JSON.parse(localStorage.getItem(STORAGE)||'[]');if(!Array.isArray(history))history=[];}catch{history=[];}
+  try{messages=JSON.parse(localStorage.getItem(CHAT)||'[]');if(!Array.isArray(messages))messages=[];}catch{messages=[];}
+  renderHistory();updateActivity([]);return true;
+}
+
 function toast(text, bad=false){ui.toast.textContent=text;ui.toast.className=`toast show${bad?' error':''}`;clearTimeout(toastTimer);toastTimer=setTimeout(()=>ui.toast.className='toast',3000);}
 function setBusy(value){busy=value;ui.send.disabled=value;ui.planButton.disabled=value;ui.prompt.disabled=value;ui.thinking.classList.toggle('hidden',!value);if(value)ui.thinkingLabel.textContent='Planning, using tools, and checking results…';}
 function scrollEnd(){window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});}
@@ -43,10 +51,23 @@ $('#clear-chat').addEventListener('click',()=>{messages=[];save();renderHistory(
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('active',x===b));const planner=b.dataset.view==='planner';$('#breadcrumb-page').textContent=planner?'Mission planner':'Agent';if(planner){$('#goal').focus({preventScroll:true});$('#goal').scrollIntoView({behavior:'smooth',block:'center'});}else{$('#agent-view').scrollIntoView({behavior:'smooth',block:'start'});ui.prompt.focus({preventScroll:true});}}));
 window.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();messages=[];save();renderHistory();ui.prompt.focus();}});
 function updateGate(d){
+  authMode=d.supabaseConfigured?'supabase':'legacy';
+  const emailWrap=$('#auth-email-wrap'),signup=$('#auth-signup'),passwordLabel=$('#auth-password-label'),submit=$('#auth-submit'),foot=$('#auth-foot');
+  if(d.supabaseConfigured){
+    emailWrap.classList.remove('hidden');signup.classList.remove('hidden');passwordLabel.textContent='PASSWORD';
+    submit.innerHTML='Sign in <span>↗</span>';foot.textContent='EACH ACCOUNT HAS ITS OWN PRIVATE MEMORY.';
+    if(!d.authenticated){
+      ui.authWall.classList.remove('hidden');ui.authForm.classList.remove('hidden');ui.authSetup.classList.add('hidden');
+      ui.authMessage.textContent='Sign in to your private NYVEX workspace, or create your own account.';
+      return false;
+    }
+    ui.authWall.classList.add('hidden');return true;
+  }
+  emailWrap.classList.add('hidden');signup.classList.add('hidden');passwordLabel.textContent='ACCESS PASSWORD';
+  submit.innerHTML='Unlock <span>↗</span>';foot.textContent='ACCESS IS RESTRICTED TO THE OWNER · SESSION EXPIRES AFTER 7 DAYS';
   if(!d.accessConfigured){
     ui.authWall.classList.remove('hidden');ui.authForm.classList.add('hidden');ui.authSetup.classList.remove('hidden');
-    ui.authMessage.textContent='NYVEX is locked until the owner finishes the security setup.';
-    return false;
+    ui.authMessage.textContent='NYVEX is locked until access setup is completed.';return false;
   }
   if(!d.authenticated){
     ui.authWall.classList.remove('hidden');ui.authForm.classList.remove('hidden');ui.authSetup.classList.add('hidden');
@@ -54,58 +75,81 @@ function updateGate(d){
   }
   ui.authWall.classList.add('hidden');return true;
 }
+async function accountAction(endpoint){
+  ui.authError.textContent='';
+  const email=ui.authEmail.value.trim(),password=ui.authPassword.value,submit=$('#auth-submit');
+  submit.disabled=true;ui.authSignup.disabled=true;submit.textContent=endpoint.endsWith('signup')?'Creating…':'Signing in…';
+  try{
+    const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+    const d=await r.json();if(!r.ok)throw new Error(d.error||'Account request failed.');
+    if(d.requiresEmailConfirmation){ui.authMessage.textContent=d.message||'Check your email to confirm your account, then sign in.';toast('Check your email to finish signing up.');return;}
+    ui.authPassword.value='';await status();
+    if(ui.authWall.classList.contains('hidden'))toast(endpoint.endsWith('signup')?'Your NYVEX account is ready.':'Welcome back to NYVEX.');
+  }catch(e){ui.authError.textContent=e.message||'Could not complete account request.';}
+  finally{submit.disabled=false;ui.authSignup.disabled=false;submit.innerHTML=authMode==='supabase'?'Sign in <span>↗</span>':'Unlock <span>↗</span>';}
+}
 ui.authForm.addEventListener('submit',async e=>{
   e.preventDefault();ui.authError.textContent='';
-  const password=ui.authPassword.value, submit=$('#auth-submit');
-  submit.disabled=true;submit.textContent='Checking…';
+  if(authMode==='supabase'){await accountAction('/api/auth/login');return;}
+  const password=ui.authPassword.value,submit=$('#auth-submit');submit.disabled=true;submit.textContent='Checking…';
   try{
     const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});
-    const d=await r.json();
-    if(!r.ok)throw new Error(d.error||'Could not unlock NYVEX.');
+    const d=await r.json();if(!r.ok)throw new Error(d.error||'Could not unlock NYVEX.');
     ui.authPassword.value='';await status();
-    if(!ui.authWall.classList.contains('hidden'))throw new Error('NYVEX is still locked. Refresh or check the access setup.');
+    if(!ui.authWall.classList.contains('hidden'))throw new Error('NYVEX is still locked. Check the access setup.');
     toast('Welcome back. NYVEX unlocked.');
   }catch(e){ui.authError.textContent=e.message||'Could not unlock NYVEX.';}
   finally{submit.disabled=false;submit.innerHTML='Unlock <span>↗</span>';}
 });
-async function status(){try{
-  const r=await fetch('/api/status',{cache:'no-store'}), d=await r.json(), pulse=document.querySelector('.pulse');
-  if(!updateGate(d)){
-    if(!d.accessConfigured){$('#provider-state').textContent='Access setup needed';$('#provider-model').textContent='Set NYVEX_ACCESS_PASSWORD';$('#core-status').textContent='LOCKED';}
-    else{$('#provider-state').textContent='Private workspace locked';$('#provider-model').textContent='Enter access password';$('#core-status').textContent='LOCKED';}
-    pulse.classList.remove('on');pulse.classList.add('off');return;
+ui.authSignup.addEventListener('click',()=>{if(authMode==='supabase')accountAction('/api/auth/signup');});
+ui.logoutButton.addEventListener('click',async()=>{
+  try{await fetch(authMode==='supabase'?'/api/auth/logout':'/api/logout',{method:'POST'});}catch{}
+  switchAccount('guest');lastMemoryUser=null;ui.accountEmail.classList.add('hidden');ui.logoutButton.classList.add('hidden');ui.memoryPanel.classList.add('hidden');await status();toast('Signed out.');
+});
+function renderMemories(memories){
+  ui.memoryList.replaceChildren();ui.memoryCount.textContent=String(memories.length)+' SAVED';
+  if(!memories.length){const p=document.createElement('p');p.className='memory-empty';p.textContent='No memories yet. Save a preference or ask NYVEX to remember something.';ui.memoryList.append(p);return;}
+  for(const item of memories){
+    const row=document.createElement('div');row.className='memory-item';
+    const text=document.createElement('p');text.textContent=item.content;
+    const remove=document.createElement('button');remove.type='button';remove.className='memory-delete';remove.textContent='×';remove.setAttribute('aria-label','Delete saved memory');
+    remove.addEventListener('click',async()=>{try{const r=await fetch('/api/memory?id='+encodeURIComponent(item.id),{method:'DELETE'});const d=await r.json();if(!r.ok)throw new Error(d.error||'Delete failed.');await loadMemories();toast('Memory deleted.');}catch(e){toast(e.message||'Could not delete memory.',true);}});
+    row.append(text,remove);ui.memoryList.append(row);
   }
-  if(d.configured){$('#provider-state').textContent='AI brain connected';$('#provider-model').textContent=d.model||'OpenAI model';pulse.classList.add('on');pulse.classList.remove('off');$('#core-status').textContent='ONLINE';}
-  else{$('#provider-state').textContent='API key needed';$('#provider-model').textContent='Add GEMINI_API_KEY';pulse.classList.add('off');$('#core-status').textContent='WAITING';}
-}catch{$('#provider-state').textContent='Server unreachable';$('#provider-model').textContent='Start NYVEX to connect';$('#core-status').textContent='OFFLINE';}}
-
-function speakText(text){
-  if(!('speechSynthesis' in window)||!window.SpeechSynthesisUtterance){toast('Spoken replies are not supported in this browser.',true);return;}
-  window.speechSynthesis.cancel();
-  const utterance=new SpeechSynthesisUtterance(String(text||'').replace(/https?:\/\/\S+/g,'link').slice(0,5000));
-  utterance.lang='en-US';utterance.rate=1;utterance.pitch=1;
-  window.speechSynthesis.speak(utterance);
 }
-function refreshVoiceToggle(){ui.voiceToggle.textContent=voiceAuto?'🔊 Voice on':'🔊 Voice off';ui.voiceToggle.setAttribute('aria-pressed',String(voiceAuto));}
-ui.voiceToggle.addEventListener('click',()=>{
-  voiceAuto=!voiceAuto;localStorage.setItem('nyvex.voice.autoplay',String(voiceAuto));refreshVoiceToggle();
-  if(!voiceAuto&&'speechSynthesis' in window)window.speechSynthesis.cancel();
-  toast(voiceAuto?'NYVEX will speak replies aloud.':'Spoken replies turned off.');
+async function loadMemories(){
+  if(authMode!=='supabase'||!activeUserId||activeUserId==='guest')return;
+  try{const r=await fetch('/api/memory',{cache:'no-store'});const d=await r.json();if(!r.ok)throw new Error(d.error||'Memory is unavailable.');renderMemories(Array.isArray(d.memories)?d.memories:[]);}
+  catch(e){ui.memoryList.replaceChildren();const p=document.createElement('p');p.className='memory-empty memory-error';p.textContent=e.message||'Memory is unavailable.';ui.memoryList.append(p);ui.memoryCount.textContent='SETUP NEEDED';}
+}
+ui.memoryForm.addEventListener('submit',async e=>{
+  e.preventDefault();const content=ui.memoryInput.value.trim();if(!content)return;
+  ui.memorySave.disabled=true;ui.memorySave.textContent='Saving…';
+  try{const r=await fetch('/api/memory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Could not save memory.');ui.memoryInput.value='';await loadMemories();toast('Saved to your private memory.');}
+  catch(err){toast(err.message||'Memory could not be saved.',true);}
+  finally{ui.memorySave.disabled=false;ui.memorySave.textContent='Save memory';}
 });
-ui.voiceInput.addEventListener('click',()=>{
-  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(isListening&&recognition){recognition.stop();return;}
-  if(!SpeechRecognition){toast('Voice input is not available in this browser. Try Chrome on Android or desktop, or type your message.',true);return;}
-  try{
-    recognition=new SpeechRecognition();recognition.lang='en-US';recognition.continuous=false;recognition.interimResults=false;recognition.maxAlternatives=1;
-    recognition.onstart=()=>{isListening=true;ui.voiceInput.classList.add('listening');ui.voiceInput.textContent='■ Stop';toast('Listening — say your message.');};
-    recognition.onresult=e=>{const phrase=String(e.results?.[0]?.[0]?.transcript||'').trim();if(phrase){ui.prompt.value=phrase;sendMessage(phrase);}};
-    recognition.onerror=e=>{toast(e.error==='not-allowed'?'Allow microphone access in your browser settings.':'Voice input stopped. Try again or type your message.',true);};
-    recognition.onend=()=>{isListening=false;ui.voiceInput.classList.remove('listening');ui.voiceInput.textContent='🎙';};
-    recognition.start();
-  }catch{toast('Could not start the microphone. Check browser permission and try again.',true);}
-});
-refreshVoiceToggle();
-
+async function status(){try{
+  const r=await fetch('/api/status',{cache:'no-store'}),d=await r.json(),pulse=document.querySelector('.pulse');
+  if(d.supabaseConfigured){
+    const nextUser=d.authenticated&&d.user?.id?d.user.id:'guest';
+    const changed=switchAccount(nextUser);
+    ui.accountEmail.textContent=d.user?.email||'';ui.accountEmail.classList.toggle('hidden',!d.authenticated);
+    ui.logoutButton.classList.toggle('hidden',!d.authenticated);
+    ui.memoryPanel.classList.toggle('hidden',!d.authenticated);
+    if(d.authenticated&&(changed||lastMemoryUser!==nextUser)){lastMemoryUser=nextUser;await loadMemories();}
+    if(!d.authenticated)lastMemoryUser=null;
+  }else{
+    switchAccount('guest');ui.accountEmail.classList.add('hidden');ui.logoutButton.classList.add('hidden');ui.memoryPanel.classList.add('hidden');
+  }
+  if(!updateGate(d)){
+    if(d.supabaseConfigured){$('#provider-state').textContent='Sign in to NYVEX';$('#provider-model').textContent='Create your private account';}
+    else if(!d.accessConfigured){$('#provider-state').textContent='Access setup needed';$('#provider-model').textContent='Set NYVEX_ACCESS_PASSWORD';}
+    else{$('#provider-state').textContent='Private workspace locked';$('#provider-model').textContent='Enter access password';}
+    $('#core-status').textContent='LOCKED';pulse.classList.remove('on');pulse.classList.add('off');return;
+  }
+  if(d.configured){$('#provider-state').textContent='AI brain connected';$('#provider-model').textContent=d.model||'Cloud AI';pulse.classList.add('on');pulse.classList.remove('off');$('#core-status').textContent='ONLINE';}
+  else{$('#provider-state').textContent='AI key needed';$('#provider-model').textContent='Check provider setup';pulse.classList.add('off');$('#core-status').textContent='WAITING';}
+}catch{$('#provider-state').textContent='Server unreachable';$('#provider-model').textContent='Start NYVEX to connect';$('#core-status').textContent='OFFLINE';}}
 renderHistory();updateActivity([]);status();
 if('serviceWorker' in navigator && location.protocol==='https:'){navigator.serviceWorker.register('/sw.js').catch(()=>{});}
