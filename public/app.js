@@ -198,7 +198,59 @@ async function status(){try{
   if(d.configured){$('#provider-state').textContent='AI brain connected';$('#provider-model').textContent=d.model||'Cloud AI';pulse.classList.add('on');pulse.classList.remove('off');$('#core-status').textContent='ONLINE';}
   else{$('#provider-state').textContent='AI key needed';$('#provider-model').textContent='Check provider setup';pulse.classList.add('off');$('#core-status').textContent='WAITING';}
 }catch{$('#provider-state').textContent='Server unreachable';$('#provider-model').textContent='Start NYVEX to connect';$('#core-status').textContent='OFFLINE';}}
-function voiceRecognitionConstructor(){return window.SpeechRecognition||window.webkitSpeechRecognition;}
+function nativeSpeechRecognitionPlugin(){
+  if(!window.Capacitor||typeof window.Capacitor.isNativePlatform!=='function'||!window.Capacitor.isNativePlatform())return null;
+  return window.NYVEXNativeSpeechRecognition||null;
+}
+class NYVEXNativeSpeechRecognitionAdapter{
+  constructor(plugin){
+    this.plugin=plugin;this.lang='en-US';this.continuous=false;this.interimResults=false;this.maxAlternatives=1;
+    this.onstart=null;this.onresult=null;this.onerror=null;this.onend=null;this._cancelled=false;this._running=false;
+  }
+  start(){
+    this._cancelled=false;this._running=true;
+    (async()=>{
+      try{
+        const available=await this.plugin.available();
+        if(!available||!available.available)throw Object.assign(new Error('Speech recognition is unavailable on this device.'),{code:'unavailable'});
+        if(typeof this.plugin.requestPermission==='function'){
+          const permission=await this.plugin.requestPermission();
+          if(permission&&permission.speechRecognition==='denied')throw Object.assign(new Error('Microphone permission was denied.'),{code:'not-allowed'});
+        }
+        if(this._cancelled)return;
+        if(typeof this.onstart==='function')this.onstart();
+        const result=await this.plugin.start({language:this.lang||'en-US',maxResults:1,popup:false,partialResults:false,prompt:'Speak to NYVEX'});
+        if(this._cancelled)return;
+        const phrase=String(result&&Array.isArray(result.matches)?result.matches[0]||'':'').trim();
+        if(phrase&&typeof this.onresult==='function'){
+          const alternative={transcript:phrase,confidence:1};
+          const speechResult=[alternative];speechResult.isFinal=true;speechResult[0]=alternative;
+          const results=[speechResult];
+          this.onresult({resultIndex:0,results});
+        }
+      }catch(error){
+        if(!this._cancelled&&typeof this.onerror==='function'){
+          const text=String(error&&error.message||error||'');
+          const code=error&&error.code==='not-allowed'||/permission|denied/i.test(text)?'not-allowed':error&&error.code==='unavailable'?'service-not-allowed':'network';
+          this.onerror({error:code,message:text});
+        }
+      }finally{
+        this._running=false;
+        if(typeof this.onend==='function')this.onend();
+      }
+    })();
+  }
+  stop(){
+    this._cancelled=true;
+    try{const result=this.plugin.stop();if(result&&typeof result.catch==='function')result.catch(()=>{});}catch{}
+  }
+  abort(){this.stop();}
+}
+function voiceRecognitionConstructor(){
+  const native=nativeSpeechRecognitionPlugin();
+  if(native)return class extends NYVEXNativeSpeechRecognitionAdapter{constructor(){super(native);}};
+  return window.SpeechRecognition||window.webkitSpeechRecognition;
+}
 function setVoiceStatus(status,caption){
   ui.voiceStatus.textContent=String(status||'Voice link standby').toUpperCase();
   ui.voiceCaption.textContent=caption||'';
