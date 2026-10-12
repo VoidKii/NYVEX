@@ -201,3 +201,8 @@
 @media(prefers-reduced-motion:reduce){
   .voice-orb-ring,.voice-orb-core i,.voice-orb-sweep,.voice-wave i,.voice-status-light{animation:none!important}
 }
+
+/* Clear device voice-language status */
+.voice-output-hint{margin:-3px 2px 12px;color:#777f97;font-size:8px;line-height:1.7;overflow-wrap:anywhere}
+.voice-output-hint.warning{color:#eab2c7}
+@media(max-width:560px){.voice-output-hint{font-size:8px;margin-bottom:11px}}

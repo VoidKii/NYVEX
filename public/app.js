@@ -244,7 +244,7 @@ function speakText(text,onEnd){
   }
   window.speechSynthesis.cancel();
   const language=ui.voiceLanguage?ui.voiceLanguage.value:'en-US';
-  const utterance=new SpeechSynthesisUtterance(String(text||'').replace(/https?:\/\/\\S+/g,'link').slice(0,3200));
+  const utterance=new SpeechSynthesisUtterance(String(text||'').replace(/https?:\/\/\S+/g,'link').slice(0,3200));
   utterance.lang=language;utterance.rate=0.98;utterance.pitch=0.96;utterance.volume=1;
   const voice=matchingSpeechVoice(language);
   if(voice)utterance.voice=voice;

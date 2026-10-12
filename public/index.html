@@ -12,8 +12,8 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="apple-touch-icon" href="/favicon.svg">
-  <link rel="stylesheet" href="/styles.css?v=6">
-  <script src="/app.js?v=6" defer></script>
+  <link rel="stylesheet" href="/styles.css?v=7">
+  <script src="/app.js?v=7" defer></script>
 </head>
 <body>
   <div id="auth-wall" class="auth-wall hidden" role="dialog" aria-modal="true" aria-labelledby="auth-title">
@@ -104,6 +104,7 @@
         </label>
         <button id="voice-replies" class="voice-replies" type="button" aria-pressed="true">◖ Spoken replies on</button>
       </div>
+      <p id="voice-output-hint" class="voice-output-hint" role="status" aria-live="polite">Checking speech voices available on this device…</p>
       <div class="voice-session-actions">
         <button id="voice-start" class="voice-start" type="button">Start listening <span>↗</span></button>
         <button id="voice-stop" class="voice-stop hidden" type="button">End session <span>■</span></button>
