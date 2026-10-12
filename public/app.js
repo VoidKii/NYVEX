@@ -53,6 +53,7 @@ window.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCa
 function updateGate(d){
   authMode=d.supabaseConfigured?'supabase':'legacy';
   const emailWrap=$('#auth-email-wrap'),signup=$('#auth-signup'),passwordLabel=$('#auth-password-label'),submit=$('#auth-submit'),foot=$('#auth-foot');
+  ui.authEmail.required=Boolean(d.supabaseConfigured);
   if(d.supabaseConfigured){
     emailWrap.classList.remove('hidden');signup.classList.remove('hidden');passwordLabel.textContent='PASSWORD';
     submit.innerHTML='Sign in <span>↗</span>';foot.textContent='EACH ACCOUNT HAS ITS OWN PRIVATE MEMORY.';
@@ -131,6 +132,7 @@ ui.memoryForm.addEventListener('submit',async e=>{
 });
 async function status(){try{
   const r=await fetch('/api/status',{cache:'no-store'}),d=await r.json(),pulse=document.querySelector('.pulse');
+  authMode=d.supabaseConfigured?'supabase':'legacy';
   if(d.supabaseConfigured){
     const nextUser=d.authenticated&&d.user?.id?d.user.id:'guest';
     const changed=switchAccount(nextUser);
