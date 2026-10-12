@@ -1,0 +1,18 @@
+{
+  "name": "nyvex-android",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NYVEX Android app shell for the live NYVEX backend",
+  "scripts": {
+    "sync": "cap sync android",
+    "android:add": "cap add android"
+  },
+  "dependencies": {
+    "@capacitor-community/speech-recognition": "7.0.1",
+    "@capacitor/android": "8.5.2",
+    "@capacitor/core": "8.5.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.2"
+  }
+}
