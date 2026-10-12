@@ -5,7 +5,7 @@ let mode='DREAM', busy=false, toastTimer, installPrompt=null, voiceAuto=localSto
 let STORAGE='nyvex.history.v2.guest', CHAT='nyvex.current.v2.guest';
 const installButton=$('#install-app');
 function refreshInstallButton(){if(!installButton)return;const standalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;installButton.classList.toggle('hidden',standalone);}
-window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;refreshInstallButton();});
+if(installButton)window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;refreshInstallButton();});
 window.addEventListener('appinstalled',()=>{installPrompt=null;refreshInstallButton();toast('NYVEX installed on this device.');});
 if(installButton)installButton.addEventListener('click',async()=>{if(installPrompt){installPrompt.prompt();try{await installPrompt.userChoice;}catch{}installPrompt=null;refreshInstallButton();return;}toast('Android: use your browser menu → Install app / Add to Home screen. iPhone: Share → Add to Home Screen.');});
 refreshInstallButton();
@@ -523,4 +523,4 @@ window.addEventListener('keydown',event=>{
 refreshVoiceToggle();refreshVoiceReplyButton();refreshVoiceOutputHint();
 
 renderHistory();updateActivity([]);status();
-if('serviceWorker' in navigator && location.protocol==='https:'){navigator.serviceWorker.register('/sw.js').catch(()=>{});}
+if('serviceWorker' in navigator && location.protocol==='https:'){navigator.serviceWorker.register('/sw.js?v=9').catch(()=>{});}
