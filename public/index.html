@@ -12,8 +12,8 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="apple-touch-icon" href="/favicon.svg">
-  <link rel="stylesheet" href="/styles.css?v=5">
-  <script src="/app.js?v=5" defer></script>
+  <link rel="stylesheet" href="/styles.css?v=6">
+  <script src="/app.js?v=6" defer></script>
 </head>
 <body>
   <div id="auth-wall" class="auth-wall hidden" role="dialog" aria-modal="true" aria-labelledby="auth-title">
@@ -59,7 +59,7 @@
           <div class="welcome" id="welcome-panel"><div class="eyebrow"><span class="eyebrow-line"></span> INTELLIGENCE, IN MOTION <span class="eyebrow-line"></span></div><div class="core-wrap"><div class="core-ring ring-one"></div><div class="core-ring ring-two"></div><div class="core-ring ring-three"></div><div class="core"><span>Ｎ</span><i class="core-glint"></i></div><span class="orbit-dot dot-one"></span><span class="orbit-dot dot-two"></span><span class="orbit-dot dot-three"></span></div><h1>Make it <span>happen.</span></h1><p class="welcome-copy">Give me the vision. I'll help you build the reality.</p><div class="suggestions"><button class="suggestion" data-prompt="Help me plan and build a futuristic personal AI website."><span>✧</span><b>Build something</b><small>Turn an idea into a project</small><span class="suggestion-arrow">↗</span></button><button class="suggestion" data-prompt="Research the most useful AI agent tools available right now and compare them with sources."><span>⌕</span><b>Research a topic</b><small>Explore with evidence and sources</small><span class="suggestion-arrow">↗</span></button><button class="suggestion" data-prompt="Help me generate 5 original creative concepts for a cinematic short video."><span>✳</span><b>Create something</b><small>Explore bold creative directions</small><span class="suggestion-arrow">↗</span></button></div></div>
           <div id="messages" class="messages" aria-live="polite"></div>
           <div id="thinking" class="thinking hidden"><span class="thinking-orb"><i></i><i></i><i></i></span><span><b>NYVEX is working</b><small id="thinking-label">Thinking through the task…</small></span><span class="thinking-live">LIVE</span></div>
-          <form id="composer" class="composer"><div class="composer-top"><span class="composer-context"><span class="composer-spark">✳</span> <span id="composer-mode">DREAM MODE</span></span><span class="composer-hint">Enter to send <kbd>↵</kbd></span></div><textarea id="prompt" rows="1" maxlength="8000" placeholder="Tell NYVEX what you want to accomplish…" aria-label="Message NYVEX"></textarea><div class="composer-bottom"><div class="composer-tools"><span class="tool-pill"><span>◈</span> Agent loop <span class="tool-pill-status"></span></span><span class="tool-pill muted-tool">⌁ Tool access enabled</span><button id="voice-input" class="voice-button" type="button" aria-label="Speak a message to NYVEX" title="Tap to speak">🎙</button><button id="voice-toggle" class="voice-button" type="button" aria-pressed="false" title="Toggle spoken replies">🔊 Voice off</button></div><button id="send" class="send-button" type="submit"><span>Run mission</span><b>↗</b></button></div></form><p class="disclaimer">NYVEX can make mistakes. Review important outputs and approve consequential actions yourself.</p>
+          <form id="composer" class="composer"><div class="composer-top"><span class="composer-context"><span class="composer-spark">✳</span> <span id="composer-mode">DREAM MODE</span></span><span class="composer-hint">Enter to send <kbd>↵</kbd></span></div><textarea id="prompt" rows="1" maxlength="8000" placeholder="Tell NYVEX what you want to accomplish…" aria-label="Message NYVEX"></textarea><div class="composer-bottom"><div class="composer-tools"><span class="tool-pill"><span>◈</span> Agent loop <span class="tool-pill-status"></span></span><span class="tool-pill muted-tool">⌁ Tool access enabled</span><button id="voice-mode-open" class="voice-button voice-launch-button" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="voice-modal" title="Open JARVIS-style voice mode">◉ JARVIS</button><button id="voice-input" class="voice-button" type="button" aria-label="Speak a message to NYVEX" title="Tap to speak">🎙</button><button id="voice-toggle" class="voice-button" type="button" aria-pressed="false" title="Toggle spoken replies">🔊 Voice off</button></div><button id="send" class="send-button" type="submit"><span>Run mission</span><b>↗</b></button></div></form><p class="disclaimer">NYVEX can make mistakes. Review important outputs and approve consequential actions yourself.</p>
         </section>
 
         <aside class="right-rail">
@@ -72,6 +72,44 @@
         </aside>
       </section>
     </main>
+  </div>
+  <div id="voice-modal" class="voice-modal hidden" role="dialog" aria-modal="true" aria-labelledby="voice-title" aria-describedby="voice-help">
+    <button class="voice-backdrop" type="button" data-voice-close aria-label="Close voice mode"></button>
+    <section class="voice-console">
+      <header class="voice-console-top">
+        <a class="brand voice-brand" href="/" aria-label="NYVEX"><span class="brand-mark"><i></i><i></i><i></i></span><span><b>NYVEX</b><small>VOICE INTERFACE</small></span></a>
+        <span class="voice-private-tag"><i></i> ON-DEMAND AUDIO</span>
+        <button id="voice-close" class="voice-close" type="button" aria-label="Close voice mode" title="Close voice mode">×</button>
+      </header>
+      <div class="voice-orb-stage" aria-hidden="true">
+        <span class="voice-orb-ring ring-a"></span><span class="voice-orb-ring ring-b"></span><span class="voice-orb-ring ring-c"></span>
+        <span class="voice-orb-core"><b>N</b><i></i></span>
+        <span class="voice-orb-sweep"></span>
+        <span class="voice-wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+      </div>
+      <div class="voice-status-row"><span id="voice-status-light" class="voice-status-light"></span><span id="voice-status">VOICE LINK STANDBY</span><span class="voice-status-divider"></span><span class="voice-status-side">NYVEX CORE</span></div>
+      <h2 id="voice-title">Your voice.<br><span>My attention.</span></h2>
+      <p id="voice-caption" class="voice-caption" role="status" aria-live="polite">Start a session when you are ready. NYVEX will listen again after each spoken reply.</p>
+      <div class="voice-conversation" aria-live="polite" aria-relevant="text">
+        <div class="voice-conversation-line"><span class="voice-line-label">YOU</span><p id="voice-user-text">Waiting for your voice…</p></div>
+        <div class="voice-conversation-line ai-line"><span class="voice-line-label">NYVEX</span><p id="voice-ai-text">Standing by.</p></div>
+      </div>
+      <div class="voice-options">
+        <label for="voice-language">VOICE LANGUAGE
+          <select id="voice-language">
+            <option value="en-US">English · US</option>
+            <option value="ne-NP">नेपाली · Nepali</option>
+            <option value="hi-IN">हिन्दी · Hindi</option>
+          </select>
+        </label>
+        <button id="voice-replies" class="voice-replies" type="button" aria-pressed="true">◖ Spoken replies on</button>
+      </div>
+      <div class="voice-session-actions">
+        <button id="voice-start" class="voice-start" type="button">Start listening <span>↗</span></button>
+        <button id="voice-stop" class="voice-stop hidden" type="button">End session <span>■</span></button>
+      </div>
+      <p id="voice-help" class="voice-privacy"><span>◇</span> Your microphone starts only after you press <b>Start listening</b>. While a session is active, NYVEX listens again after each answer until you end it. Browser support and voice quality vary by device.</p>
+    </section>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>
