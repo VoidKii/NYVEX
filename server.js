@@ -397,7 +397,7 @@ async function api(req,res,url) {
     const language=String(body.language||'en-US');
     if(!({'ne-NP':true,'hi-IN':true,'en-US':true})[language]) return error(res,400,'Choose Nepali, Hindi, or English for voice output.');
     const style=language==='ne-NP'
-      ? 'Speak the complete message in natural Nepali only, using clear Nepali pronunciation and a warm, calm, conversational assistant delivery. If the message contains English words or sentences, translate those into Nepali before speaking. Do not read these instructions aloud. Do not omit any meaningful part of the message.'
+      ? 'The provided text is ROMANIZED NEPALI written using Latin letters. Speak it as natural, conversational Nepali with native Nepali pronunciation, not as English. For example, pronounce “Namaste, timi kasto chau?” as Nepali words. Preserve Roman Nepali and do not translate it into English or Devanagari. Do not read these instructions aloud; speak only the text after the marker.'
       : language==='hi-IN'
         ? 'Speak the provided text naturally in Hindi, with clear native Hindi pronunciation and a warm, calm, conversational assistant delivery. Speak the text as written; do not translate it.'
         : 'Speak the provided text naturally in English with a warm, calm, clear, conversational assistant delivery. Speak the text as written; do not translate it.';
@@ -454,7 +454,7 @@ async function api(req,res,url) {
     if(url==='/api/chat') {
       const languageName = ({'en-US':'English','ne-NP':'Nepali','hi-IN':'Hindi'})[String(body.voiceLanguage||'')];
       const voiceInstruction = languageName
-        ? (languageName==='Nepali' ? '\n\nVOICE RESPONSE: Reply entirely in natural Nepali using Devanagari script. Use Nepali in every sentence. Do not use English filler words or provide an English translation. If the user speaks Romanized Nepali, still reply in Nepali script.' : languageName==='Hindi' ? '\n\nVOICE RESPONSE: Reply entirely in natural Hindi using Devanagari script. Do not provide an English translation.' : '\n\nVOICE RESPONSE: Reply entirely in natural English.') + ' Keep replies concise and conversational, usually 1–3 short sentences. Answer directly.'
+        ? (languageName==='Nepali' ? '\n\nVOICE RESPONSE: Reply in everyday spoken Nepali written in Romanized Nepali using Latin letters only. Example style: “Namaste, timi kasto chau?” Do not use Devanagari script and do not switch to English. If the user speaks Nepali, respond in Roman Nepali. Keep it natural, friendly, and conversational.' : languageName==='Hindi' ? '\n\nVOICE RESPONSE: Reply entirely in natural Hindi using Devanagari script. Do not provide an English translation.' : '\n\nVOICE RESPONSE: Reply entirely in natural English.') + ' Keep replies concise and conversational, usually 1–3 short sentences. Answer directly.'
         : '';
       const m=await modelCall([{role:'system',content:PERSONA+'\n\n'+MODES[mode]+voiceInstruction},...messages],{temperature:0.45,timeout:30000});
       return reply(res,200,{reply:String(m.content||'').trim(),model:config().model});
