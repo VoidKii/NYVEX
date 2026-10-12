@@ -7,16 +7,16 @@ A futuristic, private-by-default AI workspace built with Node.js and plain brows
 1. Install Node.js 20+ from https://nodejs.org/.
 2. Clone or download this repository.
 3. Copy `.env.example` to `.env`.
-4. Open `.env` in Notepad and set `OPENAI_API_KEY=your_key_here`.
+4. For the recommended free-tier option, set `GEMINI_API_KEY=your_key_here` and keep `GEMINI_MODEL=gemini-3.1-flash-lite`. NYVEX uses Gemini when that key is present. Alternatively, set `OPENAI_API_KEY` for OpenAI.
 5. Set `NYVEX_ACCESS_PASSWORD` to a strong, unique password in `.env`.
 6. In this folder, run `npm start` (or double-click `START-NYVEX.bat`).
-6. Open http://localhost:3000.
+7. Open http://localhost:3000.
 
-**Never commit your real `.env` or paste your API key into chat.** `.gitignore` excludes `.env`. API usage can cost money; check your provider account's usage limits first.
+**Never commit your real `.env` or paste an API key into chat.** `.gitignore` excludes `.env`. Free-tier AI has usage limits, and sharing the app means all users share the same provider quota. Do not enable paid billing unless a parent/guardian who manages the account has reviewed it.
 
 ## Deploy to Render
 
-Create a Node Web Service from this repository. Use build command `npm install` and start command `npm start`. In the Render service's **Environment** settings, add `OPENAI_API_KEY` and a strong, unique `NYVEX_ACCESS_PASSWORD`; optionally set `OPENAI_MODEL`. Save to redeploy. The access password protects your public app from strangers using your API quota. Never put the secret in this repo or in `render.yaml`. GitHub repository secrets do not automatically become environment variables for a running web service.
+Create a Node Web Service from this repository. Use build command `npm install` and start command `npm start`. In the Render service's **Environment** settings, add `GEMINI_API_KEY`, set `GEMINI_MODEL=gemini-3.1-flash-lite`, and set a strong, unique `NYVEX_ACCESS_PASSWORD`. NYVEX prefers Gemini whenever `GEMINI_API_KEY` is present; it can fall back to `OPENAI_API_KEY` if no Gemini key is set. Google offers a free tier for eligible Gemini API models, but project/model quotas apply and can change. Use the free tier only; don't attach paid billing just to make this work. If Google requires the account holder to be an adult, ask a parent/guardian to create and manage the key—do not bypass age or account rules. Enter the key directly in Render; never put it in the repo or share it in chat. GitHub repository secrets do not automatically become environment variables for a running web service. Share the NYVEX access password only with people you trust: everyone shares the same model quota.
 
 ## What is included
 
