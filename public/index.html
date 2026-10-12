@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#08090e">
+  <meta name="description" content="NYVEX — a tool-using AI agent workspace.">
+  <title>NYVEX — Agent Workspace</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="/" aria-label="NYVEX home"><span class="brand-mark"><i></i><i></i><i></i></span><span><b>NYVEX</b><small>AGENT SYSTEM</small></span></a>
+      <button id="new-chat" class="new-chat"><span>＋</span> New conversation <kbd>⌘ K</kbd></button>
+      <div class="side-label">WORKSPACE</div>
+      <button class="nav-item active" data-view="agent"><span class="nav-icon">◈</span> Agent workspace <span class="nav-dot"></span></button>
+      <button class="nav-item" data-view="planner"><span class="nav-icon">⌁</span> Mission planner</button>
+      <div class="side-label mode-label">AGENT MODE</div>
+      <div class="mode-list" id="mode-list">
+        <button class="mode-choice selected" data-mode="DREAM"><span class="mode-symbol dream">✳</span><span><b>Dream</b><small>Ideas & creative work</small></span><span class="mode-check">●</span></button>
+        <button class="mode-choice" data-mode="FORGE"><span class="mode-symbol forge">⌘</span><span><b>Forge</b><small>Code & problem solving</small></span><span class="mode-check">●</span></button>
+        <button class="mode-choice" data-mode="SCOUT"><span class="mode-symbol scout">⌕</span><span><b>Scout</b><small>Research & discovery</small></span><span class="mode-check">●</span></button>
+        <button class="mode-choice" data-mode="TACTIC"><span class="mode-symbol tactic">⟁</span><span><b>Tactic</b><small>Planning & strategy</small></span><span class="mode-check">●</span></button>
+      </div>
+      <div class="sidebar-spacer"></div>
+      <div class="provider-card"><span class="pulse"></span><span><b id="provider-state">Connecting to brain</b><small id="provider-model">Checking system status…</small></span><span class="provider-more">···</span></div>
+      <div class="sidebar-foot"><span class="tiny-orb"></span> PRIVATE WORKSPACE <span class="version">v0.2</span></div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar"><div class="breadcrumb"><span>Workspace</span><span class="slash">/</span><b id="breadcrumb-page">Agent</b></div><div class="top-actions"><span class="secure-tag"><span>⌑</span> SERVER-SIDE KEY</span><button id="clear-chat" class="icon-button" title="Clear current conversation" aria-label="Clear current conversation">⌫</button><div class="avatar">N</div></div></header>
+      <section class="content-grid">
+        <section class="chat-column" id="agent-view">
+          <div class="welcome" id="welcome-panel"><div class="eyebrow"><span class="eyebrow-line"></span> INTELLIGENCE, IN MOTION <span class="eyebrow-line"></span></div><div class="core-wrap"><div class="core-ring ring-one"></div><div class="core-ring ring-two"></div><div class="core-ring ring-three"></div><div class="core"><span>Ｎ</span><i class="core-glint"></i></div><span class="orbit-dot dot-one"></span><span class="orbit-dot dot-two"></span><span class="orbit-dot dot-three"></span></div><h1>Make it <span>happen.</span></h1><p class="welcome-copy">Give me the vision. I'll help you build the reality.</p><div class="suggestions"><button class="suggestion" data-prompt="Help me plan and build a futuristic personal AI website."><span>✧</span><b>Build something</b><small>Turn an idea into a project</small><span class="suggestion-arrow">↗</span></button><button class="suggestion" data-prompt="Research the most useful AI agent tools available right now and compare them with sources."><span>⌕</span><b>Research a topic</b><small>Explore with evidence and sources</small><span class="suggestion-arrow">↗</span></button><button class="suggestion" data-prompt="Help me generate 5 original creative concepts for a cinematic short video."><span>✳</span><b>Create something</b><small>Explore bold creative directions</small><span class="suggestion-arrow">↗</span></button></div></div>
+          <div id="messages" class="messages" aria-live="polite"></div>
+          <div id="thinking" class="thinking hidden"><span class="thinking-orb"><i></i><i></i><i></i></span><span><b>NYVEX is working</b><small id="thinking-label">Thinking through the task…</small></span><span class="thinking-live">LIVE</span></div>
+          <form id="composer" class="composer"><div class="composer-top"><span class="composer-context"><span class="composer-spark">✳</span> <span id="composer-mode">DREAM MODE</span></span><span class="composer-hint">Enter to send <kbd>↵</kbd></span></div><textarea id="prompt" rows="1" maxlength="8000" placeholder="Tell NYVEX what you want to accomplish…" aria-label="Message NYVEX"></textarea><div class="composer-bottom"><div class="composer-tools"><span class="tool-pill"><span>◈</span> Agent loop <span class="tool-pill-status"></span></span><span class="tool-pill muted-tool">⌁ Tool access enabled</span></div><button id="send" class="send-button" type="submit"><span>Run mission</span><b>↗</b></button></div></form><p class="disclaimer">NYVEX can make mistakes. Review important outputs and approve consequential actions yourself.</p>
+        </section>
+
+        <aside class="right-rail">
+          <div class="rail-heading"><span>MISSION CONTROL</span><span class="live-light"></span></div>
+          <section class="panel mission-panel"><div class="panel-head"><div><span class="panel-icon">⟁</span><span class="panel-kicker">TACTICAL PLANNING</span></div><span class="panel-status">READY</span></div><h2>Mission planner</h2><p class="panel-desc">Turn your goal into a clear, actionable sequence.</p><form id="plan-form" class="plan-form"><input id="goal" maxlength="8000" placeholder="What do you want to achieve?" aria-label="Mission goal"><button type="submit" id="plan-button" aria-label="Plan mission">↗</button></form><div id="plan-output" class="plan-output"><div class="empty-plan"><span>＋</span><p>Your mission plan will appear here.</p></div></div></section>
+          <section class="panel activity-panel"><div class="panel-head"><div><span class="panel-icon activity-icon">⌁</span><span class="panel-kicker">EXECUTION TRACE</span></div><span id="activity-count" class="count-badge">0 STEPS</span></div><h2>Agent activity</h2><p class="panel-desc">A transparent record of tool calls during each run.</p><div id="activity-list" class="activity-list"><div class="activity-empty"><span class="activity-line"></span><span>No activity yet. Start a mission.</span></div></div></section>
+          <section class="safety-note"><span class="safety-icon">◇</span><div><b>Controlled autonomy</b><p>NYVEX uses a limited toolset. It won't run shell commands, control your PC, or make purchases.</p></div></section>
+          <div class="rail-footer"><span>CORE STATUS <b id="core-status">INITIALIZING</b></span><span>SESSION <b id="session-id">LOCAL</b></span></div>
+        </aside>
+      </section>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
