@@ -11,3 +11,5 @@ services:
         sync: false
       - key: OPENAI_MODEL
         value: gpt-4o-mini
+      - key: NYVEX_ACCESS_PASSWORD
+        sync: false
