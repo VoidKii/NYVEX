@@ -1,7 +1,7 @@
 'use strict';
 const $ = (s) => document.querySelector(s);
-const ui = { messages:$('#messages'), prompt:$('#prompt'), composer:$('#composer'), send:$('#send'), thinking:$('#thinking'), thinkingLabel:$('#thinking-label'), welcome:$('#welcome-panel'), activity:$('#activity-list'), activityCount:$('#activity-count'), planForm:$('#plan-form'), goal:$('#goal'), planButton:$('#plan-button'), planOutput:$('#plan-output'), toast:$('#toast'), authWall:$('#auth-wall'), authForm:$('#auth-form'), authPassword:$('#auth-password'), authMessage:$('#auth-message'), authError:$('#auth-error'), authSetup:$('#auth-setup') };
-let mode='DREAM', busy=false, toastTimer, installPrompt=null;
+const ui = { messages:$('#messages'), prompt:$('#prompt'), composer:$('#composer'), send:$('#send'), thinking:$('#thinking'), thinkingLabel:$('#thinking-label'), welcome:$('#welcome-panel'), activity:$('#activity-list'), activityCount:$('#activity-count'), planForm:$('#plan-form'), goal:$('#goal'), planButton:$('#plan-button'), planOutput:$('#plan-output'), toast:$('#toast'), authWall:$('#auth-wall'), authForm:$('#auth-form'), authEmail:$('#auth-email'), authPassword:$('#auth-password'), authMessage:$('#auth-message'), authError:$('#auth-error'), authSetup:$('#auth-setup'), memoryPanel:$('#memory-panel'), memoryForm:$('#memory-form'), memoryInput:$('#memory-input'), memoryList:$('#memory-list'), memorySave:$('#memory-save'), memoryCount:$('#memory-count'), authSignup:$('#auth-signup'), logoutButton:$('#logout-button'), accountEmail:$('#account-email'), voiceInput:$('#voice-input'), voiceToggle:$('#voice-toggle') };
+let mode='DREAM', busy=false, toastTimer, installPrompt=null, voiceAuto=localStorage.getItem('nyvex.voice.autoplay')==='true', recognition=null, isListening=false;
 const STORAGE='nyvex.history.v2', CHAT='nyvex.current.v2';
 const installButton=$('#install-app');
 function refreshInstallButton(){if(!installButton)return;const standalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;installButton.classList.toggle('hidden',standalone);}
@@ -22,13 +22,14 @@ function addMessage(role, text, actions=[]){
   const av=document.createElement('div');av.className='message-avatar';av.textContent=role==='user'?'Y':'N';
   const body=document.createElement('div');body.className='message-body';const meta=document.createElement('div');meta.className='message-meta';meta.textContent=role==='user'?'YOU':'NYVEX';
   const bubble=document.createElement('div');bubble.className='message-bubble';bubble.textContent=text;body.append(meta,bubble);
+  if(role==='assistant' && 'speechSynthesis' in window){const speaker=document.createElement('button');speaker.type='button';speaker.className='speak-message';speaker.textContent='🔊';speaker.title='Read this reply aloud';speaker.setAttribute('aria-label','Read this NYVEX response aloud');speaker.addEventListener('click',()=>speakText(text));meta.append(speaker);}
   if(actions.length){const badges=document.createElement('div');badges.className='message-tools';for(const a of actions){const t=document.createElement('span');t.textContent=`${a.ok?'✓':'!'} ${a.tool}`;badges.append(t);}body.append(badges);}
   wrap.append(av,body);ui.messages.append(wrap);scrollEnd();
 }
 function renderHistory(){ui.messages.replaceChildren();ui.welcome.classList.toggle('hidden',messages.length>0);for(const m of messages)addMessage(m.role,m.content,m.actions||[]);}
 function updateActivity(actions=[]){ui.activity.replaceChildren();ui.activityCount.textContent=`${actions.length} STEP${actions.length===1?'':'S'}`;if(!actions.length){const e=document.createElement('div');e.className='activity-empty';e.innerHTML='<span class="activity-line"></span><span>No tool calls this run. Start another mission.</span>';ui.activity.append(e);return;}for(const a of actions){const item=document.createElement('div');item.className='activity-item';const mark=document.createElement('span');mark.className=`activity-mark ${a.ok?'done':'failed'}`;const txt=document.createElement('div');txt.className='activity-text';const title=document.createElement('b');title.textContent=a.tool;const detail=document.createElement('small');detail.textContent=a.summary|| (a.ok?'Tool completed':'Tool did not complete');txt.append(title,detail);item.append(mark,txt);ui.activity.append(item);}}
 function renderPlan(plan){ui.planOutput.replaceChildren();const title=document.createElement('h3');title.className='plan-title';title.textContent=plan.title;const summary=document.createElement('p');summary.className='plan-summary';summary.textContent=plan.summary;ui.planOutput.append(title,summary);for(const t of plan.tasks){const row=document.createElement('div');row.className='plan-task';const check=document.createElement('input');check.type='checkbox';check.id=`task-${t.id}`;const label=document.createElement('label');label.htmlFor=check.id;label.append(document.createTextNode(t.title));if(t.detail){const detail=document.createElement('small');detail.textContent=t.detail;label.append(detail);}const pri=document.createElement('span');pri.className=`priority ${t.priority}`;pri.textContent=t.priority;label.append(pri);row.append(check,label);ui.planOutput.append(row);}}
-async function sendMessage(text){text=String(text||'').trim();if(!text||busy)return;messages.push({role:'user',content:text});save();addMessage('user',text);ui.prompt.value='';ui.prompt.style.height='auto';setBusy(true);updateActivity([]);try{const res=await fetch('/api/agent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode,messages:messages.slice(-18)})});const data=await res.json();if(!res.ok)throw new Error(data.error||'Request failed.');const answer=String(data.reply||'NYVEX returned an empty response.');const actions=Array.isArray(data.actions)?data.actions:[];messages.push({role:'assistant',content:answer,actions});save();addMessage('assistant',answer,actions);updateActivity(actions);$('#core-status').textContent='ACTIVE';}catch(e){toast(e.message||'Could not reach NYVEX.',true);addMessage('assistant',`I couldn't complete that request: ${e.message||'Network error'}. Check the API key/server status and retry.`); }finally{setBusy(false);ui.prompt.focus();}}
+async function sendMessage(text){text=String(text||'').trim();if(!text||busy)return;messages.push({role:'user',content:text});save();addMessage('user',text);ui.prompt.value='';ui.prompt.style.height='auto';setBusy(true);updateActivity([]);try{const res=await fetch('/api/agent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode,messages:messages.slice(-18)})});const data=await res.json();if(!res.ok)throw new Error(data.error||'Request failed.');const answer=String(data.reply||'NYVEX returned an empty response.');const actions=Array.isArray(data.actions)?data.actions:[];messages.push({role:'assistant',content:answer,actions});save();addMessage('assistant',answer,actions);updateActivity(actions);$('#core-status').textContent='ACTIVE';if(voiceAuto)speakText(answer);}catch(e){toast(e.message||'Could not reach NYVEX.',true);addMessage('assistant',`I couldn't complete that request: ${e.message||'Network error'}. Check the API key/server status and retry.`); }finally{setBusy(false);ui.prompt.focus();}}
 async function planMission(goal){goal=String(goal||'').trim();if(!goal||busy)return;setBusy(true);ui.planButton.disabled=true;try{const res=await fetch('/api/plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'TACTIC',messages:[{role:'user',content:goal}]})});const data=await res.json();if(!res.ok)throw new Error(data.error||'Plan failed.');renderPlan(data.plan);$('#breadcrumb-page').textContent='Mission planner';toast('Mission plan created. Check off steps as you finish them.');}catch(e){toast(e.message||'Could not create a plan.',true);}finally{setBusy(false);ui.planButton.disabled=false;}}
 function chooseMode(next){mode=next;document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('selected',b.dataset.mode===next));$('#composer-mode').textContent=`${next} MODE`;}
 document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>chooseMode(b.dataset.mode)));
@@ -77,5 +78,34 @@ async function status(){try{
   if(d.configured){$('#provider-state').textContent='AI brain connected';$('#provider-model').textContent=d.model||'OpenAI model';pulse.classList.add('on');pulse.classList.remove('off');$('#core-status').textContent='ONLINE';}
   else{$('#provider-state').textContent='API key needed';$('#provider-model').textContent='Add GEMINI_API_KEY';pulse.classList.add('off');$('#core-status').textContent='WAITING';}
 }catch{$('#provider-state').textContent='Server unreachable';$('#provider-model').textContent='Start NYVEX to connect';$('#core-status').textContent='OFFLINE';}}
+
+function speakText(text){
+  if(!('speechSynthesis' in window)||!window.SpeechSynthesisUtterance){toast('Spoken replies are not supported in this browser.',true);return;}
+  window.speechSynthesis.cancel();
+  const utterance=new SpeechSynthesisUtterance(String(text||'').replace(/https?:\/\/\S+/g,'link').slice(0,5000));
+  utterance.lang='en-US';utterance.rate=1;utterance.pitch=1;
+  window.speechSynthesis.speak(utterance);
+}
+function refreshVoiceToggle(){ui.voiceToggle.textContent=voiceAuto?'🔊 Voice on':'🔊 Voice off';ui.voiceToggle.setAttribute('aria-pressed',String(voiceAuto));}
+ui.voiceToggle.addEventListener('click',()=>{
+  voiceAuto=!voiceAuto;localStorage.setItem('nyvex.voice.autoplay',String(voiceAuto));refreshVoiceToggle();
+  if(!voiceAuto&&'speechSynthesis' in window)window.speechSynthesis.cancel();
+  toast(voiceAuto?'NYVEX will speak replies aloud.':'Spoken replies turned off.');
+});
+ui.voiceInput.addEventListener('click',()=>{
+  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(isListening&&recognition){recognition.stop();return;}
+  if(!SpeechRecognition){toast('Voice input is not available in this browser. Try Chrome on Android or desktop, or type your message.',true);return;}
+  try{
+    recognition=new SpeechRecognition();recognition.lang='en-US';recognition.continuous=false;recognition.interimResults=false;recognition.maxAlternatives=1;
+    recognition.onstart=()=>{isListening=true;ui.voiceInput.classList.add('listening');ui.voiceInput.textContent='■ Stop';toast('Listening — say your message.');};
+    recognition.onresult=e=>{const phrase=String(e.results?.[0]?.[0]?.transcript||'').trim();if(phrase){ui.prompt.value=phrase;sendMessage(phrase);}};
+    recognition.onerror=e=>{toast(e.error==='not-allowed'?'Allow microphone access in your browser settings.':'Voice input stopped. Try again or type your message.',true);};
+    recognition.onend=()=>{isListening=false;ui.voiceInput.classList.remove('listening');ui.voiceInput.textContent='🎙';};
+    recognition.start();
+  }catch{toast('Could not start the microphone. Check browser permission and try again.',true);}
+});
+refreshVoiceToggle();
+
 renderHistory();updateActivity([]);status();
 if('serviceWorker' in navigator && location.protocol==='https:'){navigator.serviceWorker.register('/sw.js').catch(()=>{});}
