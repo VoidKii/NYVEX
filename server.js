@@ -229,7 +229,7 @@ async function api(req,res,url) {
     return reply(res,200,{plan:parsePlan(String(m.content||'')),model:config().model});
   } catch(e) { const status=Number.isInteger(e.statusCode)?e.statusCode:502; if(status>=500&&status!==503) console.error('[NYVEX]',e.message); return error(res,status,e.message||'Something went wrong.',e.code); }
 }
-const MIME={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.ico':'image/x-icon'};
+const MIME={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.ico':'image/x-icon','.webmanifest':'application/manifest+json; charset=utf-8'};
 function staticFile(req,res,url) {
   let decoded; try{decoded=decodeURIComponent(url)}catch{return error(res,400,'Bad URL.');}
   if(decoded==='/') decoded='/index.html'; const file=path.resolve(PUBLIC,`.${decoded}`);
