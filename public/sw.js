@@ -1,15 +1,32 @@
 'use strict';
-const CACHE='nyvex-shell-v8';
-const ASSETS=['/','/index.html','/styles.css?v=9','/app.js?v=10','/favicon.svg','/manifest.webmanifest'];
-self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));});
-self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('nyvex-shell-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
+const CACHE='nyvex-shell-v9';
+const ASSETS=[
+  '/',
+  '/index.html',
+  '/styles.css?v=11',
+  '/nyvex-studio.css?v=1',
+  '/app.js?v=11',
+  '/nyvex-vfx.js?v=1',
+  '/favicon.svg',
+  '/manifest.webmanifest'
+];
+self.addEventListener('install',event=>{
+  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));
+});
+self.addEventListener('activate',event=>{
+  event.waitUntil(
+    caches.keys()
+      .then(keys=>Promise.all(keys.filter(k=>k.startsWith('nyvex-shell-')&&k!==CACHE).map(k=>caches.delete(k))))
+      .then(()=>self.clients.claim())
+  );
+});
 self.addEventListener('fetch',event=>{
   const request=event.request;
-  if(request.method!=='GET')return;
+  if(request.method!=='GET') return;
   const url=new URL(request.url);
-  if(url.origin!==self.location.origin||url.pathname.startsWith('/api/'))return;
-  const shellPaths=['/','/index.html','/styles.css','/app.js','/favicon.svg','/manifest.webmanifest'];
-  if(!shellPaths.includes(url.pathname))return;
+  if(url.origin!==self.location.origin||url.pathname.startsWith('/api/')) return;
+  const shellPaths=['/','/index.html','/styles.css','/nyvex-studio.css','/app.js','/nyvex-vfx.js','/favicon.svg','/manifest.webmanifest'];
+  if(!shellPaths.includes(url.pathname)) return;
   if(request.mode==='navigate'){
     event.respondWith(fetch(request).then(response=>{
       if(response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put('/index.html',copy));}
@@ -18,7 +35,10 @@ self.addEventListener('fetch',event=>{
     return;
   }
   event.respondWith(caches.match(request).then(cached=>{
-    const network=fetch(request).then(response=>{if(response.ok){caches.open(CACHE).then(cache=>cache.put(request,response.clone()));}return response;}).catch(()=>cached);
+    const network=fetch(request).then(response=>{
+      if(response.ok){caches.open(CACHE).then(cache=>cache.put(request,response.clone()));}
+      return response;
+    }).catch(()=>cached);
     return cached||network;
   }));
 });
