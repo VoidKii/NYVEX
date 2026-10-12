@@ -7,10 +7,26 @@
   <meta name="description" content="NYVEX — a tool-using AI agent workspace.">
   <title>NYVEX — Agent Workspace</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/styles.css">
-  <script src="/app.js" defer></script>
+  <link rel="stylesheet" href="/styles.css?v=3">
+  <script src="/app.js?v=3" defer></script>
 </head>
 <body>
+  <div id="auth-wall" class="auth-wall hidden" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+    <div class="auth-card">
+      <a class="brand auth-brand" href="/" aria-label="NYVEX"><span class="brand-mark"><i></i><i></i><i></i></span><span><b>NYVEX</b><small>PRIVATE AGENT SYSTEM</small></span></a>
+      <div class="auth-orb"><span>N</span></div>
+      <p class="eyebrow auth-eyebrow">PRIVATE WORKSPACE</p>
+      <h1 id="auth-title">Access <span>restricted.</span></h1>
+      <p id="auth-message" class="auth-message">Enter your private access password to continue.</p>
+      <form id="auth-form" class="auth-form">
+        <label for="auth-password">ACCESS PASSWORD</label>
+        <div class="auth-input-row"><input id="auth-password" type="password" maxlength="200" autocomplete="current-password" placeholder="Enter access password" required><button id="auth-submit" type="submit">Unlock <span>↗</span></button></div>
+        <p id="auth-error" class="auth-error" role="status"></p>
+      </form>
+      <div id="auth-setup" class="auth-setup hidden"><b>Owner setup needed</b><p>Add <code>NYVEX_ACCESS_PASSWORD</code> in Render → NYVEX → Environment. Save the variable to redeploy, then refresh this page.</p></div>
+      <p class="auth-foot">ACCESS IS RESTRICTED TO THE OWNER · SESSION EXPIRES AFTER 7 DAYS</p>
+    </div>
+  </div>
   <div class="app-shell">
     <aside class="sidebar">
       <a class="brand" href="/" aria-label="NYVEX home"><span class="brand-mark"><i></i><i></i><i></i></span><span><b>NYVEX</b><small>AGENT SYSTEM</small></span></a>
