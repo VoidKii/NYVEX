@@ -377,7 +377,7 @@ async function api(req,res,url) {
     setSessionCookie(req,res,'',0);
     return reply(res,200,{ok:true});
   }
-  if(req.method!=='POST'||!['/api/agent','/api/chat','/api/plan'].includes(url)) return error(res,404,'API route not found.');
+  if(req.method!=='POST'||!['/api/agent','/api/chat','/api/plan','/api/speech'].includes(url)) return error(res,404,'API route not found.');
   let agentSession=null;
   if(sb.ready) {
     agentSession=await supabaseSession(req,res,true);
@@ -388,6 +388,51 @@ async function api(req,res,url) {
   }
   if(!rateLimit(req,res)) return;
   let body; try{body=await readBody(req)}catch(e){return error(res,e.statusCode||400,e.message||'Invalid request.');}
+  if(url==='/api/speech') {
+    const key=String(process.env.GEMINI_API_KEY||'').trim();
+    if(!key) return error(res,503,'Cloud speech needs the Gemini API key on the NYVEX server. No key is exposed to your phone.','TTS_NOT_CONFIGURED');
+    const text=String(body.text||'').trim();
+    if(!text) return error(res,400,'There is no reply text to speak.');
+    if(text.length>2400) return error(res,413,'That reply is too long for one voice clip. Ask NYVEX for a shorter answer.');
+    const language=String(body.language||'en-US');
+    if(!({'ne-NP':true,'hi-IN':true,'en-US':true})[language]) return error(res,400,'Choose Nepali, Hindi, or English for voice output.');
+    const style=language==='ne-NP'
+      ? 'Speak the provided text naturally in Nepali, with clear native Nepali pronunciation and a warm, calm, conversational, futuristic assistant delivery. Speak the text as written; do not translate it.'
+      : language==='hi-IN'
+        ? 'Speak the provided text naturally in Hindi, with clear native Hindi pronunciation and a warm, calm, conversational assistant delivery. Speak the text as written; do not translate it.'
+        : 'Speak the provided text naturally in English with a warm, calm, clear, conversational assistant delivery. Speak the text as written; do not translate it.';
+    const controller=new AbortController(), timer=setTimeout(()=>controller.abort(),45000);
+    try {
+      const upstream=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash-lite-tts:generateContent',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-goog-api-key':key},
+        signal:controller.signal,
+        body:JSON.stringify({
+          contents:[{role:'user',parts:[{text,speech_metadata:{style}}]}],
+          generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{voice:'Charon'}}}
+        })
+      });
+      const data=await upstream.json().catch(()=>({}));
+      if(!upstream.ok) {
+        const detail=String(data?.error?.message||'').slice(0,180);
+        console.error('[NYVEX TTS]',upstream.status,detail);
+        if(upstream.status===429) return error(res,429,'The cloud voice quota is temporarily busy. Try again shortly.','TTS_QUOTA');
+        if(upstream.status===401||upstream.status===403) return error(res,503,'The cloud voice service is not available for the current server API key.','TTS_UNAVAILABLE');
+        return error(res,502,'The cloud voice could not generate audio. Try again.','TTS_FAILED');
+      }
+      const part=data?.candidates?.[0]?.content?.parts?.find(item=>item?.inlineData?.data);
+      if(!part?.inlineData?.data) return error(res,502,'The cloud voice returned no audio. Try again.','TTS_EMPTY');
+      const audio=Buffer.from(part.inlineData.data,'base64');
+      if(audio.length<100||audio.length>10*1024*1024) return error(res,502,'The cloud voice audio was invalid or too large. Try a shorter reply.','TTS_AUDIO_INVALID');
+      res.writeHead(200,{'Content-Type':part.inlineData.mimeType||'audio/wav','Content-Length':audio.length,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY'});
+      res.end(audio);
+      return;
+    } catch(e) {
+      if(e.name==='AbortError') return error(res,504,'Cloud speech took too long. Please retry.','TTS_TIMEOUT');
+      console.error('[NYVEX TTS]',String(e.message||e).slice(0,180));
+      return error(res,502,'Could not reach the cloud voice service. Check your connection and retry.','TTS_NETWORK');
+    } finally { clearTimeout(timer); }
+  }
   try {
     const validated=validate(body), mode=validated.mode, messages=validated.messages;
     if(url==='/api/agent') return reply(res,200,await runAgent(messages,mode,agentSession));

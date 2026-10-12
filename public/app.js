@@ -1,7 +1,7 @@
 'use strict';
 const $ = (s) => document.querySelector(s);
 const ui = { messages:$('#messages'), prompt:$('#prompt'), composer:$('#composer'), send:$('#send'), thinking:$('#thinking'), thinkingLabel:$('#thinking-label'), welcome:$('#welcome-panel'), activity:$('#activity-list'), activityCount:$('#activity-count'), planForm:$('#plan-form'), goal:$('#goal'), planButton:$('#plan-button'), planOutput:$('#plan-output'), toast:$('#toast'), authWall:$('#auth-wall'), authForm:$('#auth-form'), authEmail:$('#auth-email'), authPassword:$('#auth-password'), authMessage:$('#auth-message'), authError:$('#auth-error'), authSetup:$('#auth-setup'), memoryPanel:$('#memory-panel'), memoryForm:$('#memory-form'), memoryInput:$('#memory-input'), memoryList:$('#memory-list'), memorySave:$('#memory-save'), memoryCount:$('#memory-count'), authSignup:$('#auth-signup'), logoutButton:$('#logout-button'), accountEmail:$('#account-email'), voiceInput:$('#voice-input'), voiceToggle:$('#voice-toggle'), voiceModal:$('#voice-modal'), voiceModeOpen:$('#voice-mode-open'), voiceStatus:$('#voice-status'), voiceStatusLight:$('#voice-status-light'), voiceCaption:$('#voice-caption'), voiceUserText:$('#voice-user-text'), voiceAiText:$('#voice-ai-text'), voiceStart:$('#voice-start'), voiceStop:$('#voice-stop'), voiceReplies:$('#voice-replies'), voiceLanguage:$('#voice-language'), voiceOutputHint:$('#voice-output-hint'), voiceClose:$('#voice-close') };
-let mode='DREAM', busy=false, toastTimer, installPrompt=null, voiceAuto=localStorage.getItem('nyvex.voice.autoplay')==='true', recognition=null, isListening=false, authMode='legacy', activeUserId='guest', lastMemoryUser=null, voiceSessionActive=false, voiceTurnInProgress=false, voiceRetryTimer=null, voiceReplyAudio=localStorage.getItem('nyvex.voice.replies')!=='false';
+let mode='DREAM', busy=false, toastTimer, installPrompt=null, voiceAuto=localStorage.getItem('nyvex.voice.autoplay')==='true', recognition=null, isListening=false, authMode='legacy', activeUserId='guest', lastMemoryUser=null, voiceSessionActive=false, voiceTurnInProgress=false, voiceRetryTimer=null, voiceReplyAudio=localStorage.getItem('nyvex.voice.replies')!=='false', activeVoiceAudio=null, activeVoiceObjectUrl=null, voicePlaybackToken=0;
 let STORAGE='nyvex.history.v2.guest', CHAT='nyvex.current.v2.guest';
 const installButton=$('#install-app');
 function refreshInstallButton(){if(!installButton)return;const standalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;installButton.classList.toggle('hidden',standalone);}
@@ -215,57 +215,128 @@ function matchingSpeechVoice(language){
 }
 function refreshVoiceOutputHint(){
   if(!ui.voiceOutputHint)return;
-  if(!('speechSynthesis' in window)||!window.SpeechSynthesisUtterance){
-    ui.voiceOutputHint.textContent='This browser does not support spoken replies. You can still use voice input if supported.';
-    ui.voiceOutputHint.classList.add('warning');
+  const language=ui.voiceLanguage.value||'en-US';
+  if(language==='ne-NP'){
+    ui.voiceOutputHint.textContent='NYVEX cloud Nepali speech is enabled. Your phone does not need a Nepali voice pack. Free-tier quotas and limits apply.';
+    ui.voiceOutputHint.classList.remove('warning');
     return;
   }
-  const language=ui.voiceLanguage.value||'en-US';
+  if(!('speechSynthesis' in window)||!window.SpeechSynthesisUtterance){
+    ui.voiceOutputHint.textContent='Your browser has no built-in speech voice for this language. NYVEX will try cloud-generated speech instead.';
+    ui.voiceOutputHint.classList.remove('warning');
+    return;
+  }
   const voices=window.speechSynthesis.getVoices();
   const voice=matchingSpeechVoice(language);
-  ui.voiceOutputHint.classList.remove('warning');
   if(voice){
-    ui.voiceOutputHint.textContent='Speech voice ready: '+voice.name+' · '+voice.lang+'.';
+    ui.voiceOutputHint.textContent='Device speech voice ready: '+voice.name+' · '+voice.lang+'.';
+    ui.voiceOutputHint.classList.remove('warning');
   }else if(!voices.length){
-    ui.voiceOutputHint.textContent='Checking speech voices on this device. Language availability depends on your phone’s text-to-speech engine.';
-  }else if(language==='ne-NP'){
-    ui.voiceOutputHint.textContent='No Nepali speech voice is listed on this device. NYVEX can reply in Nepali text, but spoken output may use a fallback voice. Check your phone’s Text-to-speech settings for Nepali voice data.';
-    ui.voiceOutputHint.classList.add('warning');
+    ui.voiceOutputHint.textContent='Checking voices. NYVEX can try cloud-generated speech if the device lacks a matching voice.';
+    ui.voiceOutputHint.classList.remove('warning');
   }else{
-    ui.voiceOutputHint.textContent='No '+language+' voice is listed on this device. The system may use its default voice.';
-    ui.voiceOutputHint.classList.add('warning');
+    ui.voiceOutputHint.textContent='No matching device voice found. NYVEX will try cloud-generated speech; free-tier quotas apply.';
+    ui.voiceOutputHint.classList.remove('warning');
   }
 }
-function speakText(text,onEnd){
+function stopCloudVoicePlayback(){
+  const audio=activeVoiceAudio;
+  activeVoiceAudio=null;
+  if(audio){
+    audio.onended=null;audio.onerror=null;audio.onplay=null;
+    try{audio.pause();audio.removeAttribute('src');audio.load();}catch{}
+  }
+  if(activeVoiceObjectUrl){try{URL.revokeObjectURL(activeVoiceObjectUrl);}catch{}activeVoiceObjectUrl=null;}
+}
+function playBrowserSpeech(text,language,onEnd){
   if(!('speechSynthesis' in window)||!window.SpeechSynthesisUtterance){
-    toast('Spoken replies are not supported in this browser.',true);
     if(typeof onEnd==='function')setTimeout(onEnd,0);
     return false;
   }
+  stopCloudVoicePlayback();
   window.speechSynthesis.cancel();
-  const language=ui.voiceLanguage?ui.voiceLanguage.value:'en-US';
   const utterance=new SpeechSynthesisUtterance(String(text||'').replace(/https?:\/\/\S+/g,'link').slice(0,3200));
   utterance.lang=language;utterance.rate=0.98;utterance.pitch=0.96;utterance.volume=1;
   const voice=matchingSpeechVoice(language);
   if(voice)utterance.voice=voice;
-  else refreshVoiceOutputHint();
   let completed=false;
   const finish=()=>{if(completed)return;completed=true;if(typeof onEnd==='function')onEnd();};
-  utterance.onstart=()=>{
-    if(voiceSessionActive)setVoiceStatus('NYVEX speaking','Speaking your reply. I will listen again when the answer finishes.');
-  };
-  utterance.onend=finish;
-  utterance.onerror=event=>{
-    if(event.error==='voice-unavailable'||event.error==='synthesis-failed'){
-      if(language==='ne-NP'){
-        ui.voiceOutputHint.textContent='Your device could not speak Nepali with its current speech engine. Check Android Text-to-speech settings and install a Nepali voice if available.';
-        ui.voiceOutputHint.classList.add('warning');
-      }
-    }
-    finish();
-  };
+  utterance.onstart=()=>{if(voiceSessionActive)setVoiceStatus('NYVEX speaking','Speaking your reply. I will listen again when the answer finishes.');};
+  utterance.onend=finish;utterance.onerror=finish;
   window.speechSynthesis.speak(utterance);
   return true;
+}
+async function speakCloudText(text,language,onEnd){
+  const token=++voicePlaybackToken;
+  let completed=false,fallbackStarted=false;
+  const finish=()=>{if(completed)return;completed=true;if(typeof onEnd==='function')onEnd();};
+  const startFallback=reason=>{
+    if(fallbackStarted||token!==voicePlaybackToken)return;
+    fallbackStarted=true;stopCloudVoicePlayback();
+    const detail=String(reason||'cloud voice is unavailable').slice(0,160);
+    if(ui.voiceOutputHint){
+      ui.voiceOutputHint.textContent=language==='ne-NP'
+        ? 'Cloud Nepali voice is temporarily unavailable ('+detail+'). Trying your phone’s speech engine as a fallback.'
+        : 'Cloud speech is temporarily unavailable ('+detail+'). Trying your phone’s speech engine as a fallback.';
+      ui.voiceOutputHint.classList.add('warning');
+    }
+    toast(language==='ne-NP'?'Cloud Nepali voice is temporarily unavailable. Trying device speech as a fallback.':'Cloud voice is temporarily unavailable. Trying device speech as a fallback.',true);
+    if(!playBrowserSpeech(text,language,finish))finish();
+  };
+  stopCloudVoicePlayback();
+  if('speechSynthesis' in window)window.speechSynthesis.cancel();
+  if(ui.voiceOutputHint){
+    ui.voiceOutputHint.textContent=language==='ne-NP'
+      ? 'Generating Nepali audio with NYVEX cloud voice…'
+      : 'Generating audio with NYVEX cloud voice…';
+    ui.voiceOutputHint.classList.remove('warning');
+  }
+  if(voiceSessionActive)setVoiceStatus('Generating voice','Creating spoken audio. This may take a moment.');
+  try{
+    const response=await fetch('/api/speech',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({text:String(text||'').slice(0,2400),language})
+    });
+    if(!response.ok){
+      let data={};try{data=await response.json();}catch{}
+      throw new Error(data.error||'Cloud voice is temporarily unavailable.');
+    }
+    const blob=await response.blob();
+    if(token!==voicePlaybackToken){finish();return;}
+    if(blob.size<100||blob.size>10*1024*1024)throw new Error('The cloud voice returned an invalid audio file.');
+    const objectUrl=URL.createObjectURL(blob);
+    const audio=new Audio(objectUrl);
+    audio.preload='auto';audio.playsInline=true;
+    activeVoiceAudio=audio;activeVoiceObjectUrl=objectUrl;
+    const clean=()=>{
+      if(activeVoiceAudio===audio)activeVoiceAudio=null;
+      if(activeVoiceObjectUrl===objectUrl){try{URL.revokeObjectURL(objectUrl);}catch{}activeVoiceObjectUrl=null;}
+    };
+    audio.onplay=()=>{
+      if(ui.voiceOutputHint){
+        ui.voiceOutputHint.textContent=language==='ne-NP'
+          ? 'Speaking with NYVEX cloud Nepali voice. Your phone does not need a Nepali voice pack.'
+          : 'Speaking with NYVEX cloud voice.';
+        ui.voiceOutputHint.classList.remove('warning');
+      }
+      if(voiceSessionActive)setVoiceStatus('NYVEX speaking','Speaking your reply. I will listen again when the answer finishes.');
+    };
+    audio.onended=()=>{clean();finish();};
+    audio.onerror=()=>{clean();startFallback('the browser could not play the generated audio');};
+    await audio.play();
+  }catch(error){
+    if(token!==voicePlaybackToken){finish();return;}
+    startFallback(String(error?.message||'cloud voice is unavailable'));
+  }
+}
+function speakText(text,onEnd){
+  const language=ui.voiceLanguage?ui.voiceLanguage.value:'en-US';
+  if(language==='ne-NP'||!matchingSpeechVoice(language)||!('speechSynthesis' in window)||!window.SpeechSynthesisUtterance){
+    speakCloudText(text,language,onEnd);
+    return true;
+  }
+  return playBrowserSpeech(text,language,onEnd);
 }
 function refreshVoiceToggle(){
   ui.voiceToggle.textContent=voiceAuto?'🔊 Voice on':'🔊 Voice off';
@@ -378,6 +449,8 @@ function startVoiceListening(){
 }
 function stopVoiceSession(announce=false){
   const hadSession=voiceSessionActive||isListening;
+  voicePlaybackToken++;
+  stopCloudVoicePlayback();
   voiceSessionActive=false;voiceTurnInProgress=false;
   clearTimeout(voiceRetryTimer);voiceRetryTimer=null;
   const current=recognition;recognition=null;
