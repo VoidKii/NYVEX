@@ -33,7 +33,8 @@ The app shell can open from cache after it has been visited, but chat, login, re
 - Chat and structured mission planner.
 - Bounded tool loop (up to four rounds) with visible tool activity.
 - Web search, safe arithmetic, and workspace note creation/listing.
-- Browser-side chat history and checkable mission tasks.\n- Responsive phone layout, installable web-app manifest, and a small offline app-shell cache that never caches AI/API responses.
+- Browser-side chat history and checkable mission tasks.
+- Responsive phone layout, installable web-app manifest, and a small offline app-shell cache that never caches AI/API responses.
 - Password-protected access, signed HttpOnly sessions, request-size limits, per-IP throttling, security headers, and same-origin API checks.
 - No local AI model required, so the laptop does not need to run a large model. Cloud API limits and charges still apply.
 
