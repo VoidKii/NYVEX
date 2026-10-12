@@ -1,0 +1,133 @@
+name: Build NYVEX native apps
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "app-v*"
+    paths:
+      - "desktop/**"
+      - "mobile/**"
+      - ".github/workflows/build-apps.yml"
+      - "APP-BUILDS.md"
+      - "public/app.js"
+      - "public/index.html"
+      - "public/sw.js"
+      - "public/native-speech-bridge.js"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nyvex-native-builds-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    name: Windows installer and portable app
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install desktop packaging dependencies
+        working-directory: desktop
+        run: npm install --no-audit --no-fund
+      - name: Build Windows apps
+        working-directory: desktop
+        run: npm run dist:win
+      - name: Upload Windows builds
+        uses: actions/upload-artifact@v4
+        with:
+          name: NYVEX-Windows-${{ github.sha }}
+          path: desktop/dist/*.exe
+          if-no-files-found: error
+          retention-days: 30
+
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android platform tools
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Install Capacitor dependencies
+        working-directory: mobile
+        run: npm install --no-audit --no-fund
+      - name: Generate Android project
+        working-directory: mobile
+        run: |
+          npx cap add android
+          npx cap sync android
+      - name: Ensure microphone permission is declared
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("mobile/android/app/src/main/AndroidManifest.xml")
+          manifest = p.read_text(encoding="utf-8")
+          permission = '<uses-permission android:name="android.permission.RECORD_AUDIO" />'
+          if permission not in manifest:
+              manifest = manifest.replace("<application", permission + "\n    <application", 1)
+              p.write_text(manifest, encoding="utf-8")
+          PY
+      - name: Build installable debug APK
+        run: |
+          chmod +x mobile/android/gradlew
+          cd mobile/android
+          ./gradlew assembleDebug
+      - name: Name APK for download
+        run: |
+          mkdir -p mobile/dist
+          cp mobile/android/app/build/outputs/apk/debug/app-debug.apk mobile/dist/NYVEX-Android-1.0.0-debug.apk
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NYVEX-Android-${{ github.sha }}
+          path: mobile/dist/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: Attach app builds to GitHub Release
+    if: startsWith(github.ref, 'refs/tags/app-v')
+    needs:
+      - windows
+      - android
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download built installers
+        uses: actions/download-artifact@v4
+        with:
+          pattern: NYVEX-*
+          path: release-assets
+          merge-multiple: true
+      - name: Publish release downloads
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "NYVEX ${{ github.ref_name }}"
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          make_latest: true
+          files: release-assets/*
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
