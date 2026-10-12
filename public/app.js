@@ -90,7 +90,8 @@ ui.composer.addEventListener('submit',e=>{e.preventDefault();sendMessage(ui.prom
 ui.prompt.addEventListener('input',()=>{ui.prompt.style.height='auto';ui.prompt.style.height=`${Math.min(ui.prompt.scrollHeight,180)}px`;});
 ui.prompt.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ui.composer.requestSubmit();}});
 ui.planForm.addEventListener('submit',e=>{e.preventDefault();planMission(ui.goal.value);});
-function startNewConversation(){messages=[];save();renderHistory();updateActivity([]);ui.prompt.focus();}\ndocument.querySelectorAll('#new-chat, #new-chat-mobile').forEach(button=>button.addEventListener('click',startNewConversation));
+function startNewConversation(){messages=[];save();renderHistory();updateActivity([]);ui.prompt.focus();}
+document.querySelectorAll('#new-chat, #new-chat-mobile').forEach(button=>button.addEventListener('click',startNewConversation));
 $('#clear-chat').addEventListener('click',()=>{messages=[];save();renderHistory();updateActivity([]);toast('Current conversation cleared.');});
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('active',x===b));const planner=b.dataset.view==='planner';$('#breadcrumb-page').textContent=planner?'Mission planner':'Agent';if(planner){$('#goal').focus({preventScroll:true});$('#goal').scrollIntoView({behavior:'smooth',block:'center'});}else{$('#agent-view').scrollIntoView({behavior:'smooth',block:'start'});ui.prompt.focus({preventScroll:true});}}));
 window.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();messages=[];save();renderHistory();ui.prompt.focus();}});
