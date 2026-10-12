@@ -8,9 +8,9 @@
     "android:add": "cap add android"
   },
   "dependencies": {
-    "@capacitor-community/speech-recognition": "7.0.1",
     "@capacitor/android": "8.5.2",
-    "@capacitor/core": "8.5.2"
+    "@capacitor/core": "8.5.2",
+    "@capgo/capacitor-speech-recognition": "8.3.2"
   },
   "devDependencies": {
     "@capacitor/cli": "8.5.2",
