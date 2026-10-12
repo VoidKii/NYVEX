@@ -12,8 +12,8 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="apple-touch-icon" href="/favicon.svg">
-  <link rel="stylesheet" href="/styles.css?v=4">
-  <script src="/app.js?v=4" defer></script>
+  <link rel="stylesheet" href="/styles.css?v=5">
+  <script src="/app.js?v=5" defer></script>
 </head>
 <body>
   <div id="auth-wall" class="auth-wall hidden" role="dialog" aria-modal="true" aria-labelledby="auth-title">
@@ -24,12 +24,13 @@
       <h1 id="auth-title">Access <span>restricted.</span></h1>
       <p id="auth-message" class="auth-message">Enter your private access password to continue.</p>
       <form id="auth-form" class="auth-form">
-        <label for="auth-password">ACCESS PASSWORD</label>
-        <div class="auth-input-row"><input id="auth-password" type="password" maxlength="200" autocomplete="current-password" placeholder="Enter access password" required><button id="auth-submit" type="submit">Unlock <span>↗</span></button></div>
+        <div id="auth-email-wrap" class="auth-field"><label for="auth-email">EMAIL</label><input id="auth-email" type="email" maxlength="254" autocomplete="email" placeholder="you@example.com"></div>
+        <div class="auth-field"><label id="auth-password-label" for="auth-password">PASSWORD</label><input id="auth-password" type="password" maxlength="128" autocomplete="current-password" placeholder="Enter password" required></div>
+        <div class="auth-buttons"><button id="auth-submit" type="submit">Sign in <span>↗</span></button><button id="auth-signup" class="auth-secondary" type="button">Create account</button></div>
         <p id="auth-error" class="auth-error" role="status"></p>
       </form>
-      <div id="auth-setup" class="auth-setup hidden"><b>Owner setup needed</b><p>Add <code>NYVEX_ACCESS_PASSWORD</code> in Render → NYVEX → Environment. Save the variable to redeploy, then refresh this page.</p></div>
-      <p class="auth-foot">ACCESS IS RESTRICTED TO THE OWNER · SESSION EXPIRES AFTER 7 DAYS</p>
+      <div id="auth-setup" class="auth-setup hidden"><b>Owner setup needed</b><p>Connect a Supabase project by setting <code>SUPABASE_URL</code>, <code>SUPABASE_ANON_KEY</code>, and <code>NYVEX_SESSION_SECRET</code> in Render Environment. Do not put secret keys in this page or GitHub.</p></div>
+      <p id="auth-foot" class="auth-foot">YOUR ACCOUNT AND SAVED MEMORIES ARE PRIVATE TO YOU.</p>
     </div>
   </div>
   <div class="app-shell">
@@ -52,19 +53,20 @@
     </aside>
 
     <main class="main-area">
-      <header class="topbar"><div class="breadcrumb"><span>Workspace</span><span class="slash">/</span><b id="breadcrumb-page">Agent</b></div><div class="top-actions"><button id="install-app" class="install-button" type="button" title="Install NYVEX on this device" aria-label="Install NYVEX on this device">↓ <span>Install</span></button><span class="secure-tag"><span>⌑</span> SERVER-SIDE KEY</span><button id="clear-chat" class="icon-button" title="Clear current conversation" aria-label="Clear current conversation">⌫</button><div class="avatar">N</div></div></header>
+      <header class="topbar"><div class="breadcrumb"><span>Workspace</span><span class="slash">/</span><b id="breadcrumb-page">Agent</b></div><div class="top-actions"><button id="install-app" class="install-button" type="button" title="Install NYVEX on this device" aria-label="Install NYVEX on this device">↓ <span>Install</span></button><span id="account-email" class="account-email hidden"></span><button id="logout-button" class="logout-button hidden" type="button">Sign out</button><span class="secure-tag"><span>⌑</span> SERVER-SIDE KEY</span><button id="clear-chat" class="icon-button" title="Clear current conversation" aria-label="Clear current conversation">⌫</button><div class="avatar">N</div></div></header>
       <section class="content-grid">
         <section class="chat-column" id="agent-view">
           <div class="welcome" id="welcome-panel"><div class="eyebrow"><span class="eyebrow-line"></span> INTELLIGENCE, IN MOTION <span class="eyebrow-line"></span></div><div class="core-wrap"><div class="core-ring ring-one"></div><div class="core-ring ring-two"></div><div class="core-ring ring-three"></div><div class="core"><span>Ｎ</span><i class="core-glint"></i></div><span class="orbit-dot dot-one"></span><span class="orbit-dot dot-two"></span><span class="orbit-dot dot-three"></span></div><h1>Make it <span>happen.</span></h1><p class="welcome-copy">Give me the vision. I'll help you build the reality.</p><div class="suggestions"><button class="suggestion" data-prompt="Help me plan and build a futuristic personal AI website."><span>✧</span><b>Build something</b><small>Turn an idea into a project</small><span class="suggestion-arrow">↗</span></button><button class="suggestion" data-prompt="Research the most useful AI agent tools available right now and compare them with sources."><span>⌕</span><b>Research a topic</b><small>Explore with evidence and sources</small><span class="suggestion-arrow">↗</span></button><button class="suggestion" data-prompt="Help me generate 5 original creative concepts for a cinematic short video."><span>✳</span><b>Create something</b><small>Explore bold creative directions</small><span class="suggestion-arrow">↗</span></button></div></div>
           <div id="messages" class="messages" aria-live="polite"></div>
           <div id="thinking" class="thinking hidden"><span class="thinking-orb"><i></i><i></i><i></i></span><span><b>NYVEX is working</b><small id="thinking-label">Thinking through the task…</small></span><span class="thinking-live">LIVE</span></div>
-          <form id="composer" class="composer"><div class="composer-top"><span class="composer-context"><span class="composer-spark">✳</span> <span id="composer-mode">DREAM MODE</span></span><span class="composer-hint">Enter to send <kbd>↵</kbd></span></div><textarea id="prompt" rows="1" maxlength="8000" placeholder="Tell NYVEX what you want to accomplish…" aria-label="Message NYVEX"></textarea><div class="composer-bottom"><div class="composer-tools"><span class="tool-pill"><span>◈</span> Agent loop <span class="tool-pill-status"></span></span><span class="tool-pill muted-tool">⌁ Tool access enabled</span></div><button id="send" class="send-button" type="submit"><span>Run mission</span><b>↗</b></button></div></form><p class="disclaimer">NYVEX can make mistakes. Review important outputs and approve consequential actions yourself.</p>
+          <form id="composer" class="composer"><div class="composer-top"><span class="composer-context"><span class="composer-spark">✳</span> <span id="composer-mode">DREAM MODE</span></span><span class="composer-hint">Enter to send <kbd>↵</kbd></span></div><textarea id="prompt" rows="1" maxlength="8000" placeholder="Tell NYVEX what you want to accomplish…" aria-label="Message NYVEX"></textarea><div class="composer-bottom"><div class="composer-tools"><span class="tool-pill"><span>◈</span> Agent loop <span class="tool-pill-status"></span></span><span class="tool-pill muted-tool">⌁ Tool access enabled</span><button id="voice-input" class="voice-button" type="button" aria-label="Speak a message to NYVEX" title="Tap to speak">🎙</button><button id="voice-toggle" class="voice-button" type="button" aria-pressed="false" title="Toggle spoken replies">🔊 Voice off</button></div><button id="send" class="send-button" type="submit"><span>Run mission</span><b>↗</b></button></div></form><p class="disclaimer">NYVEX can make mistakes. Review important outputs and approve consequential actions yourself.</p>
         </section>
 
         <aside class="right-rail">
           <div class="rail-heading"><span>MISSION CONTROL</span><span class="live-light"></span></div>
           <section class="panel mission-panel"><div class="panel-head"><div><span class="panel-icon">⟁</span><span class="panel-kicker">TACTICAL PLANNING</span></div><span class="panel-status">READY</span></div><h2>Mission planner</h2><p class="panel-desc">Turn your goal into a clear, actionable sequence.</p><form id="plan-form" class="plan-form"><input id="goal" maxlength="8000" placeholder="What do you want to achieve?" aria-label="Mission goal"><button type="submit" id="plan-button" aria-label="Plan mission">↗</button></form><div id="plan-output" class="plan-output"><div class="empty-plan"><span>＋</span><p>Your mission plan will appear here.</p></div></div></section>
           <section class="panel activity-panel"><div class="panel-head"><div><span class="panel-icon activity-icon">⌁</span><span class="panel-kicker">EXECUTION TRACE</span></div><span id="activity-count" class="count-badge">0 STEPS</span></div><h2>Agent activity</h2><p class="panel-desc">A transparent record of tool calls during each run.</p><div id="activity-list" class="activity-list"><div class="activity-empty"><span class="activity-line"></span><span>No activity yet. Start a mission.</span></div></div></section>
+          <section id="memory-panel" class="panel memory-panel hidden"><div class="panel-head"><div><span class="panel-icon memory-icon">✧</span><span class="panel-kicker">PERSONAL MEMORY</span></div><span id="memory-count" class="count-badge">0 SAVED</span></div><h2>Your memory</h2><p class="panel-desc">Save details NYVEX should remember across sessions. Only your signed-in account can access these.</p><form id="memory-form" class="memory-form"><textarea id="memory-input" maxlength="1000" rows="2" placeholder="Remember that I prefer..." aria-label="Memory to save"></textarea><button id="memory-save" type="submit">Save memory</button></form><div id="memory-list" class="memory-list"><p class="memory-empty">Sign in to use personal memory.</p></div></section>
           <section class="safety-note"><span class="safety-icon">◇</span><div><b>Controlled autonomy</b><p>NYVEX uses a limited toolset. It won't run shell commands, control your PC, or make purchases.</p></div></section>
           <div class="rail-footer"><span>CORE STATUS <b id="core-status">INITIALIZING</b></span><span>SESSION <b id="session-id">LOCAL</b></span></div>
         </aside>
