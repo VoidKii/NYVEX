@@ -408,8 +408,8 @@ async function api(req,res,url) {
         headers:{'Content-Type':'application/json','x-goog-api-key':key},
         signal:controller.signal,
         body:JSON.stringify({
-          contents:[{role:'user',parts:[{text,speech_metadata:{style}}]}],
-          generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{voice:'Charon'}}}
+          contents:[{role:'user',parts:[{text:style+'\\n\\nText to speak verbatim:\\n'+text}]}],
+          generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:'Charon'}}}}
         })
       });
       const data=await upstream.json().catch(()=>({}));
@@ -422,9 +422,24 @@ async function api(req,res,url) {
       }
       const part=data?.candidates?.[0]?.content?.parts?.find(item=>item?.inlineData?.data);
       if(!part?.inlineData?.data) return error(res,502,'The cloud voice returned no audio. Try again.','TTS_EMPTY');
-      const audio=Buffer.from(part.inlineData.data,'base64');
+      let audio=Buffer.from(part.inlineData.data,'base64');
+      const audioType=String(part.inlineData.mimeType||'').toLowerCase();
+      // Gemini TTS generateContent commonly returns raw 16-bit PCM, not a playable WAV.
+      // Wrap PCM in a WAV container so mobile browsers can play it.
+      if(!audioType.includes('wav')) {
+        const sampleRateMatch=audioType.match(/rate=(\\d+)/);
+        const sampleRate=sampleRateMatch?Number(sampleRateMatch[1]):24000;
+        if(!Number.isFinite(sampleRate)||sampleRate<8000||sampleRate>96000) return error(res,502,'The cloud voice returned an unsupported audio format. Try again.','TTS_AUDIO_FORMAT');
+        const wavHeader=Buffer.alloc(44);
+        wavHeader.write('RIFF',0);wavHeader.writeUInt32LE(36+audio.length,4);wavHeader.write('WAVE',8);
+        wavHeader.write('fmt ',12);wavHeader.writeUInt32LE(16,16);wavHeader.writeUInt16LE(1,20);
+        wavHeader.writeUInt16LE(1,22);wavHeader.writeUInt32LE(sampleRate,24);
+        wavHeader.writeUInt32LE(sampleRate*2,28);wavHeader.writeUInt16LE(2,32);wavHeader.writeUInt16LE(16,34);
+        wavHeader.write('data',36);wavHeader.writeUInt32LE(audio.length,40);
+        audio=Buffer.concat([wavHeader,audio]);
+      }
       if(audio.length<100||audio.length>10*1024*1024) return error(res,502,'The cloud voice audio was invalid or too large. Try a shorter reply.','TTS_AUDIO_INVALID');
-      res.writeHead(200,{'Content-Type':part.inlineData.mimeType||'audio/wav','Content-Length':audio.length,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY'});
+      res.writeHead(200,{'Content-Type':'audio/wav','Content-Length':audio.length,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY'});
       res.end(audio);
       return;
     } catch(e) {
