@@ -276,11 +276,12 @@ async function speakCloudText(text,language,onEnd){
     const detail=String(reason||'cloud voice is unavailable').slice(0,160);
     if(ui.voiceOutputHint){
       ui.voiceOutputHint.textContent=language==='ne-NP'
-        ? 'Cloud Nepali voice is temporarily unavailable ('+detail+'). Trying your phone’s speech engine as a fallback.'
+        ? 'Cloud Nepali voice failed ('+detail+'). This device has no Nepali voice fallback, so check the error and retry.'
         : 'Cloud speech is temporarily unavailable ('+detail+'). Trying your phone’s speech engine as a fallback.';
       ui.voiceOutputHint.classList.add('warning');
     }
-    toast(language==='ne-NP'?'Cloud Nepali voice is temporarily unavailable. Trying device speech as a fallback.':'Cloud voice is temporarily unavailable. Trying device speech as a fallback.',true);
+    toast(language==='ne-NP'?'Cloud Nepali voice failed. This device has no Nepali fallback; check the message above.':'Cloud voice is temporarily unavailable. Trying device speech as a fallback.',true);
+    if(language==='ne-NP'){finish();return;}
     if(!playBrowserSpeech(text,language,finish))finish();
   };
   stopCloudVoicePlayback();
