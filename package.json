@@ -1,0 +1,15 @@
+{
+  "name": "nyvex-agent",
+  "version": "0.2.1",
+  "private": true,
+  "description": "NYVEX — a private, tool-using AI agent workspace.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "check": "node --check server.js && node --check public/app.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
