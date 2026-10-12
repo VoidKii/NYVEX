@@ -8,14 +8,15 @@ A futuristic, private-by-default AI workspace built with Node.js and plain brows
 2. Clone or download this repository.
 3. Copy `.env.example` to `.env`.
 4. Open `.env` in Notepad and set `OPENAI_API_KEY=your_key_here`.
-5. In this folder, run `npm start` (or double-click `START-NYVEX.bat`).
+5. Set `NYVEX_ACCESS_PASSWORD` to a strong, unique password in `.env`.
+6. In this folder, run `npm start` (or double-click `START-NYVEX.bat`).
 6. Open http://localhost:3000.
 
 **Never commit your real `.env` or paste your API key into chat.** `.gitignore` excludes `.env`. API usage can cost money; check your provider account's usage limits first.
 
 ## Deploy to Render
 
-Create a Node Web Service from this repository. Use build command `npm install` and start command `npm start`. In the Render service's **Environment** settings, add `OPENAI_API_KEY`; optionally set `OPENAI_MODEL`. Deploy after saving. Never put the secret in this repo or in `render.yaml`. GitHub repository secrets do not automatically become environment variables for a running web service.
+Create a Node Web Service from this repository. Use build command `npm install` and start command `npm start`. In the Render service's **Environment** settings, add `OPENAI_API_KEY` and a strong, unique `NYVEX_ACCESS_PASSWORD`; optionally set `OPENAI_MODEL`. Save to redeploy. The access password protects your public app from strangers using your API quota. Never put the secret in this repo or in `render.yaml`. GitHub repository secrets do not automatically become environment variables for a running web service.
 
 ## What is included
 
@@ -24,7 +25,7 @@ Create a Node Web Service from this repository. Use build command `npm install` 
 - Bounded tool loop (up to four rounds) with visible tool activity.
 - Web search, safe arithmetic, and workspace note creation/listing.
 - Browser-side chat history and checkable mission tasks.
-- Basic request-size limits, per-IP throttling, security headers, and same-origin API checks.
+- Password-protected access, signed HttpOnly sessions, request-size limits, per-IP throttling, security headers, and same-origin API checks.
 - No local AI model required, so the laptop does not need to run a large model. Cloud API limits and charges still apply.
 
 ## Roadmap
