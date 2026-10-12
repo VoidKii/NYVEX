@@ -392,7 +392,11 @@ async function api(req,res,url) {
     const validated=validate(body), mode=validated.mode, messages=validated.messages;
     if(url==='/api/agent') return reply(res,200,await runAgent(messages,mode,agentSession));
     if(url==='/api/chat') {
-      const m=await modelCall([{role:'system',content:PERSONA+'\n\n'+MODES[mode]},...messages],{temperature:0.65});
+      const languageName = ({'en-US':'English','ne-NP':'Nepali','hi-IN':'Hindi'})[String(body.voiceLanguage||'')];
+      const voiceInstruction = languageName
+        ? '\n\nVOICE RESPONSE: Respond in natural spoken ' + languageName + (languageName==='Nepali' ? ' using Nepali (Devanagari) script.' : languageName==='Hindi' ? ' using Hindi (Devanagari) script.' : '.') + ' Keep replies concise and conversational, usually 1–3 short sentences. Answer directly, avoid unnecessary preamble, and do not switch languages unless the user asks.'
+        : '';
+      const m=await modelCall([{role:'system',content:PERSONA+'\n\n'+MODES[mode]+voiceInstruction},...messages],{temperature:0.45,timeout:30000});
       return reply(res,200,{reply:String(m.content||'').trim(),model:config().model});
     }
     const goal=messages.filter(m=>m.role==='user').at(-1)?.content;
